@@ -1,0 +1,102 @@
+arm_name: KINOVA_GEN3_2_RIGHT
+
+KINOVA_GEN3_2_RIGHT:
+  gravitational_acceleration:
+    - 0.0
+    - 0.0
+    - -9.81
+
+  pre_condition:
+    constraint_count: 2
+    constraints:
+      1:
+        type: POSITION
+        value:
+          - 0.5
+          - 0.5
+          - NULL
+        operator:
+          - GREATER_THAN
+          - GREATER_THAN
+          - NULL
+
+      2:
+        type: FORCE
+        value:
+          - 0.5
+          - 0.5
+          - 0.5
+        operator:
+          - GREATER_THAN
+          - GREATER_THAN
+          - GREATER_THAN
+
+
+  per_condition:
+    constraint_count: 3
+    constraints:
+      1:
+        type: POSITION
+        value:
+          - 0.5
+          - 0.5
+          - 0.5
+        operator: 
+          - EQUAL
+          - EQUAL
+          - EQUAL
+
+      2:
+        type: VELOCITY
+        value:
+          - 0.5
+          - 0.5
+          - 0.5        
+        operator:
+          - EQUAL
+          - EQUAL
+          - EQUAL
+
+      3:
+        type: FORCE
+        value:
+          - 0.5
+          - NULL
+          - 0.5
+        operator:
+          - EQUAL
+          - NULL
+          - EQUAL
+
+      4:
+        type: ORIENTATION_QUATERNION
+        value:
+          - 0.5
+          - 0.5
+          - 0.5
+          - 0.5
+        operator:
+          - EQUAL
+          - EQUAL
+          - EQUAL
+          - EQUAL
+
+
+  post_condition:
+    constraint_count: 2
+    constraints:
+      1:
+        type: FORCE
+        value:
+          - 0.5
+          - 0.5
+          - 0.5
+        operator:
+          - EQUAL
+          - EQUAL
+          - EQUAL
+
+      2:
+        type: ORIENTATION_YAW
+        value: 0.5
+        operator: EQUAL
