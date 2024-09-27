@@ -1,7 +1,7 @@
 # specifying name of the executable as the same as project name
 # add_executable(${PROJECT_NAME} src/adaptive_control.cpp)
 # add_executable(simple_adaptive_pid_binary simple_adaptive_pid.cpp)
-add_executable(kinova_arm_control ${CMAKE_CURRENT_SOURCE_DIR}/kinova_arm_control.cpp)
+add_executable(kinova_arm_control ${CMAKE_CURRENT_SOURCE_DIR}/src/kinova_arm_control.cpp)
 
 # PUBLIC keyword is used to specify thet other projects that depend on the current one should also be linked to the executable
 target_link_libraries(
