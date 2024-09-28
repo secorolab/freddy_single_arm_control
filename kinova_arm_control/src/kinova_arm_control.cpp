@@ -28,21 +28,21 @@ For per-conditions only position, velocity, orientation quat (stiffness controll
 
 // handling signals: referred from https://github.com/RoboticsCosmos/motion_spec_gen/blob/0b48adc779ae6d6d593c1d7bcdb87e5535482fc3/gen/freddy_uc1_ref_log.cpp
 // this can be used later in the while loop to save log files before exiting the program
-// #include <csignal>
+#include <csignal>
 
-// volatile sig_atomic_t flag = 0;
+volatile sig_atomic_t flag = 0;
 
-// void handle_signal(int sig)
-// {
-//     flag = 1;
-//     std::cout << "Received signal: " << sig << std::endl;
-// }
+void handle_signal(int sig)
+{
+    flag = 1;
+    std::cout << "Received signal: " << sig << std::endl;
+}
 
 // enum for arms being controlled
 enum robot_controlled
 {
-    KINOVA_GEN3_1_LEFT = 1,
-    KINOVA_GEN3_2_RIGHT = 2,
+    KINOVA_GEN3_1_LEFT = 1,  // "192.168.1.10"
+    KINOVA_GEN3_2_RIGHT = 2, // "192.168.1.12"
 };
 
 enum constraint_type
@@ -59,7 +59,6 @@ enum constraint_type
 
 enum operator_type
 {
-    NULL_OPR = 0,
     GREATER_THAN = 1,
     LESS_THAN = 2,
 };
@@ -137,8 +136,7 @@ std::unordered_map<std::string, constraint_type> constraint_type_map = {
 
 std::unordered_map<std::string, operator_type> operator_type_map = {
     {"GREATER_THAN", operator_type::GREATER_THAN},
-    {"LESS_THAN", operator_type::LESS_THAN},
-    {"NULL", operator_type::NULL_OPR}};
+    {"LESS_THAN", operator_type::LESS_THAN}};
 
 std::unordered_map<std::string, condition_type> condition_type_map = {
     {"PRE_CONDITION", condition_type::PRE_CONDITION},
@@ -172,61 +170,62 @@ void check_3D_vector_constraint_satisfaction(
     else
     {
         std::cout << "[check_3D_vector_constraint_satisfaction] Condition type not found" << std::endl;
+        flag = 1; // stop the execution
     }
 
     for (int j = 0; j < 3; j++)
     {
         operator_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"][j].as<std::string>();
-        auto operator_iterator = operator_type_map.find(operator_type_str);
-        if (operator_iterator != operator_type_map.end())
+        if (operator_type_str != "null")
         {
-            operator_type_ = operator_iterator->second;
-
-            switch (operator_type_)
+            auto operator_iterator = operator_type_map.find(operator_type_str);
+            if (operator_iterator != operator_type_map.end())
             {
-            case GREATER_THAN:
-                desired_data = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["value"][j].as<double>();
-                if (j == 0)
-                {
-                    greater_than_monitor(&measured_x_axis_data, &desired_data, &constraint_satisfied);
-                }
-                else if (j == 1)
-                {
-                    greater_than_monitor(&measured_y_axis_data, &desired_data, &constraint_satisfied);
-                }
-                else if (j == 2)
-                {
-                    greater_than_monitor(&measured_z_axis_data, &desired_data, &constraint_satisfied);
-                }
-                break;
+                operator_type_ = operator_iterator->second;
 
-            case LESS_THAN:
-                desired_data = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["value"][j].as<double>();
-                if (j == 0)
+                switch (operator_type_)
                 {
-                    less_than_monitor(&measured_x_axis_data, &desired_data, &constraint_satisfied);
-                }
-                else if (j == 1)
-                {
-                    less_than_monitor(&measured_y_axis_data, &desired_data, &constraint_satisfied);
-                }
-                else if (j == 2)
-                {
-                    less_than_monitor(&measured_z_axis_data, &desired_data, &constraint_satisfied);
-                }
-                break;
+                case GREATER_THAN:
+                    desired_data = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["value"][j].as<double>();
+                    if (j == 0)
+                    {
+                        greater_than_monitor(&measured_x_axis_data, &desired_data, &constraint_satisfied);
+                    }
+                    else if (j == 1)
+                    {
+                        greater_than_monitor(&measured_y_axis_data, &desired_data, &constraint_satisfied);
+                    }
+                    else if (j == 2)
+                    {
+                        greater_than_monitor(&measured_z_axis_data, &desired_data, &constraint_satisfied);
+                    }
+                    break;
 
-            case NULL_OPR:
-                break;
+                case LESS_THAN:
+                    desired_data = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["value"][j].as<double>();
+                    if (j == 0)
+                    {
+                        less_than_monitor(&measured_x_axis_data, &desired_data, &constraint_satisfied);
+                    }
+                    else if (j == 1)
+                    {
+                        less_than_monitor(&measured_y_axis_data, &desired_data, &constraint_satisfied);
+                    }
+                    else if (j == 2)
+                    {
+                        less_than_monitor(&measured_z_axis_data, &desired_data, &constraint_satisfied);
+                    }
+                    break;
 
-            default:
-                break;
+                default:
+                    break;
+                }
             }
-        }
-        else
-        {
-            std::cout << "Operator type not found" << std::endl;
-            // TODO: throw exception; completely exit the program
+            else
+            {
+                std::cout << "[check_3D_vector_constraint_satisfaction] Operator type not found" << std::endl;
+                flag = 1; // stop the execution
+            }
         }
     }
 }
@@ -255,38 +254,43 @@ void check_1D_vector_constraint_satisfaction(
     else
     {
         std::cout << "[check_1D_vector_constraint_satisfaction] Condition type not found" << std::endl;
+        flag = 1; // stop the execution
     }
 
     operator_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"].as<std::string>();
 
-    auto operator_iterator = operator_type_map.find(operator_type_str);
-
-    if (operator_iterator != operator_type_map.end())
+    if (operator_type_str != "null")
     {
-        operator_type_ = operator_iterator->second;
+        auto operator_iterator = operator_type_map.find(operator_type_str);
 
-        switch (operator_type_)
+        if (operator_iterator != operator_type_map.end())
         {
-        case GREATER_THAN:
-            desired_data = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["value"].as<double>();
-            greater_than_monitor(&measured_data, &desired_data, &constraint_satisfied);
-            break;
+            operator_type_ = operator_iterator->second;
 
-        case LESS_THAN:
-            desired_data = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["value"].as<double>();
-            less_than_monitor(&measured_data, &desired_data, &constraint_satisfied);
-            break;
+            switch (operator_type_)
+            {
+            case GREATER_THAN:
+                desired_data = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["value"].as<double>();
+                greater_than_monitor(&measured_data, &desired_data, &constraint_satisfied);
+                break;
 
-        case NULL_OPR:
-            break;
+            case LESS_THAN:
+                desired_data = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["value"].as<double>();
+                less_than_monitor(&measured_data, &desired_data, &constraint_satisfied);
+                break;
 
-        default:
-            break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            std::cout << "[check_1D_vector_constraint_satisfaction] Operator type not found" << std::endl;
+            flag = 1; // stop the execution
         }
     }
-    else
-    {
-        std::cout << "Operator type not found" << std::endl;
+    else{
+        std::cout << "[check_1D_vector_constraint_satisfaction] Null operator in 1D constraint check is not meaningful" << std::endl;
     }
 }
 
@@ -312,82 +316,88 @@ void check_pre_or_post_condition_satisfaction(
     constraint_type constraint_type_;
 
     // for every constraint in the pre-condition
-    for (int i = 0; i < condition_constraint_count; i++)
-    {
-        if (condition_type_value
-            == condition_type::PRE_CONDITION)
+    if (condition_constraint_count > 0)
+    { 
+        for (int i = 1; i < condition_constraint_count+1; i++)
+        {
+            if (condition_type_value
+                == condition_type::PRE_CONDITION)
+                {
+                    condition_type_str = "PRE_CONDITION";
+                }
+            else if (condition_type_value
+                == condition_type::POST_CONDITION)
+                {
+                    condition_type_str = "POST_CONDITION";
+                }
+            constraint_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
+
+            auto constraint_iterator = constraint_type_map.find(constraint_type_str);
+
+            if (constraint_iterator != constraint_type_map.end())
             {
-                condition_type_str = "PRE_CONDITION";
+                constraint_type_ = constraint_iterator->second; // selecting the second value stored in the iterator (the first value is the key)
+
+                switch (constraint_type_)
+                {
+                case POSITION_XYZ:
+                    check_3D_vector_constraint_satisfaction(
+                        measured_lin_pos_x_axis_data,
+                        measured_lin_pos_y_axis_data,
+                        measured_lin_pos_z_axis_data,
+                        constraint_satisfied,
+                        i,
+                        motion_specification_params,
+                        arm_name,
+                        condition_type_value);
+                    break;
+
+                case VELOCITY_XYZ:
+                    check_3D_vector_constraint_satisfaction(
+                        measured_lin_vel_x_axis_data,
+                        measured_lin_vel_y_axis_data,
+                        measured_lin_vel_z_axis_data,
+                        constraint_satisfied,
+                        i,
+                        motion_specification_params,
+                        arm_name,
+                        condition_type_value);
+                    break;
+
+                case ORIENTATION_ROLL:
+                    check_1D_vector_constraint_satisfaction(measured_roll_data, constraint_satisfied, i, motion_specification_params, arm_name, condition_type_value);
+                    break;
+
+                case ORIENTATION_PITCH:
+                    check_1D_vector_constraint_satisfaction(measured_pitch_data, constraint_satisfied, i, motion_specification_params, arm_name, condition_type_value);
+                    break;
+
+                case ORIENTATION_YAW:
+                    check_1D_vector_constraint_satisfaction(measured_yaw_data, constraint_satisfied, i, motion_specification_params, arm_name, condition_type_value);
+                    break;
+
+                default:
+                    std::cout << "[check_pre_or_post_condition_satisfaction] Constraint checking not defined for given constraint" << std::endl;
+                    flag = 1; // stop the execution
+                    break;
+                }
             }
-        else if (condition_type_value
-            == condition_type::POST_CONDITION)
+            else
             {
-                condition_type_str = "POST_CONDITION";
+                std::cout << "[check_pre_or_post_condition_satisfaction] Constraint type not found" << std::endl;
+                flag = 1; // stop the execution
             }
-        constraint_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
 
-        auto constraint_iterator = constraint_type_map.find(constraint_type_str);
-
-        if (constraint_iterator != constraint_type_map.end())
-        {
-            constraint_type_ = constraint_iterator->second; // selecting the second value stored in the iterator (the first value is the key)
-
-            switch (constraint_type_)
+            if (constraint_satisfied && i == condition_constraint_count)
             {
-            case POSITION_XYZ:
-                check_3D_vector_constraint_satisfaction(
-                    measured_lin_pos_x_axis_data,
-                    measured_lin_pos_y_axis_data,
-                    measured_lin_pos_z_axis_data,
-                    constraint_satisfied,
-                    i,
-                    motion_specification_params,
-                    arm_name,
-                    condition_type_value);
-                break;
-
-            case VELOCITY_XYZ:
-                check_3D_vector_constraint_satisfaction(
-                    measured_lin_vel_x_axis_data,
-                    measured_lin_vel_y_axis_data,
-                    measured_lin_vel_z_axis_data,
-                    constraint_satisfied,
-                    i,
-                    motion_specification_params,
-                    arm_name,
-                    condition_type_value);
-                break;
-
-            case ORIENTATION_ROLL:
-                check_1D_vector_constraint_satisfaction(measured_roll_data, constraint_satisfied, i, motion_specification_params, arm_name, condition_type_value);
-                break;
-
-            case ORIENTATION_PITCH:
-                check_1D_vector_constraint_satisfaction(measured_pitch_data, constraint_satisfied, i, motion_specification_params, arm_name, condition_type_value);
-                break;
-
-            case ORIENTATION_YAW:
-                check_1D_vector_constraint_satisfaction(measured_yaw_data, constraint_satisfied, i, motion_specification_params, arm_name, condition_type_value);
-                break;
-            default:
-                std::cout << "[check_pre_or_post_condition_satisfaction] Constraint checking not defined for given constraint" << std::endl;
-                break;
+                condition_satisfied = true;
+                return;
             }
-        }
-        else
-        {
-            std::cout << "Constraint type not found" << std::endl;
-        }
-
-        if (constraint_satisfied && i == condition_constraint_count)
-        {
-            condition_satisfied = true;
-            return;
-        }
-        else if (!constraint_satisfied)
-        {
-            condition_satisfied = false;
-            return;
+            else if (!constraint_satisfied)
+            {
+                condition_satisfied = false;
+                return;
+            }
         }
     }
 }
@@ -410,97 +420,101 @@ void get_setpoints_from_motion_specification(
     std::string condition_type_str = "PER_CONDITION";
     YAML::Node constraint_value_list;
 
-    for (int i = 0; i < per_condition_constraint_count; i++)
+    if (per_condition_constraint_count > 0)
     {
-        std::string constraint_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
-        auto constraint_iterator = constraint_type_map.find(constraint_type_str);
-
-        if (constraint_iterator != constraint_type_map.end())
+        for (int i = 1; i < per_condition_constraint_count+1; i++)
         {
-            constraint_value_list = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["value"];
-            constraint_type constraint_type_ = constraint_iterator->second;
-            switch (constraint_type_)
+            std::string constraint_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
+            auto constraint_iterator = constraint_type_map.find(constraint_type_str);
+
+            if (constraint_iterator != constraint_type_map.end())
             {
-            case POSITION_XYZ:
-                for (int k = 0; k < 3; k++)
+                constraint_value_list = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["value"];
+                constraint_type constraint_type_ = constraint_iterator->second;
+                switch (constraint_type_)
                 {
-                    if (!constraint_value_list[k].IsNull())
+                case POSITION_XYZ:
+                    for (int k = 0; k < 3; k++)
                     {
-                        if (k == 0)
+                        if (!constraint_value_list[k].IsNull())
                         {
-                            lin_pos_sp_x_axis_data = constraint_value_list[k].as<double>();
-                        }
-                        else if (k == 1)
-                        {
-                            lin_pos_sp_y_axis_data = constraint_value_list[k].as<double>();
-                        }
-                        else if (k == 2)
-                        {
-                            lin_pos_sp_z_axis_data = constraint_value_list[k].as<double>();
+                            if (k == 0)
+                            {
+                                lin_pos_sp_x_axis_data = constraint_value_list[k].as<double>();
+                            }
+                            else if (k == 1)
+                            {
+                                lin_pos_sp_y_axis_data = constraint_value_list[k].as<double>();
+                            }
+                            else if (k == 2)
+                            {
+                                lin_pos_sp_z_axis_data = constraint_value_list[k].as<double>();
+                            }
                         }
                     }
-                }
-                break;
+                    break;
 
-            case VELOCITY_XYZ:
-                for (int k = 0; k < 3; k++)
-                {
-                    if (!constraint_value_list[k].IsNull())
+                case VELOCITY_XYZ:
+                    for (int k = 0; k < 3; k++)
                     {
-                        if (k == 0)
+                        if (!constraint_value_list[k].IsNull())
                         {
-                            lin_vel_sp_x_axis_data = constraint_value_list[k].as<double>();
-                        }
-                        else if (k == 1)
-                        {
-                            lin_vel_sp_y_axis_data = constraint_value_list[k].as<double>();
-                        }
-                        else if (k == 2)
-                        {
-                            lin_vel_sp_z_axis_data = constraint_value_list[k].as<double>();
+                            if (k == 0)
+                            {
+                                lin_vel_sp_x_axis_data = constraint_value_list[k].as<double>();
+                            }
+                            else if (k == 1)
+                            {
+                                lin_vel_sp_y_axis_data = constraint_value_list[k].as<double>();
+                            }
+                            else if (k == 2)
+                            {
+                                lin_vel_sp_z_axis_data = constraint_value_list[k].as<double>();
+                            }
                         }
                     }
-                }
-                break;
+                    break;
 
-            case FORCE_XYZ:
-                for (int k = 0; k < 3; k++)
-                {
-                    if (!constraint_value_list[k].IsNull())
+                case FORCE_XYZ:
+                    for (int k = 0; k < 3; k++)
                     {
-                        if (k == 0)
+                        if (!constraint_value_list[k].IsNull())
                         {
-                            force_to_apply_x_axis = constraint_value_list[k].as<double>();
-                        }
-                        else if (k == 1)
-                        {
-                            force_to_apply_y_axis = constraint_value_list[k].as<double>();
-                        }
-                        else if (k == 2)
-                        {
-                            force_to_apply_z_axis = constraint_value_list[k].as<double>();
+                            if (k == 0)
+                            {
+                                force_to_apply_x_axis = constraint_value_list[k].as<double>();
+                            }
+                            else if (k == 1)
+                            {
+                                force_to_apply_y_axis = constraint_value_list[k].as<double>();
+                            }
+                            else if (k == 2)
+                            {
+                                force_to_apply_z_axis = constraint_value_list[k].as<double>();
+                            }
                         }
                     }
-                }
-                break;
+                    break;
 
-            case ORIENTATION_QUATERNION:
-                for (int k = 0; k < 4; k++)
-                {
-                    if (!constraint_value_list[k].IsNull())
+                case ORIENTATION_QUATERNION:
+                    for (int k = 0; k < 4; k++)
                     {
-                        desired_quat_GF[k] = constraint_value_list[k].as<double>();
+                        if (!constraint_value_list[k].IsNull())
+                        {
+                            desired_quat_GF[k] = constraint_value_list[k].as<double>();
+                        }
                     }
-                }
-                break;
+                    break;
 
-            default:
-                break;
+                default:
+                    break;
+                }
             }
-        }
-        else
-        {
-            std::cout << "[get_setpoints_from_motion_specification] Constraint type not found" << std::endl;
+            else
+            {
+                std::cout << "[get_setpoints_from_motion_specification] Constraint type not found" << std::endl;
+                flag = 1; // stop the execution
+            }
         }
     }
 }
@@ -547,125 +561,130 @@ void get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
     YAML::Node constraint_value_list;
     std::string condition_type_str = "PER_CONDITION";
 
-    for (int i = 0; i < per_condition_constraint_count; i++)
+    if (per_condition_constraint_count > 0)
     {
-        std::string constraint_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
-        auto constraint_iterator = constraint_type_map.find(constraint_type_str);
-
-        if (constraint_iterator != constraint_type_map.end())
+        for (int i = 1; i < per_condition_constraint_count+1; i++)
         {
-            constraint_type constraint_type_ = constraint_iterator->second;
-            constraint_value_list = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["value"];
+            std::string constraint_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
+            auto constraint_iterator = constraint_type_map.find(constraint_type_str);
 
-            switch (constraint_type_)
+            if (constraint_iterator != constraint_type_map.end())
             {
-            case POSITION_XYZ:
-                for (int k = 0; k < 3; k++)
+                constraint_type constraint_type_ = constraint_iterator->second;
+                constraint_value_list = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["value"];
+
+                switch (constraint_type_)
                 {
-                    if (!constraint_value_list[k].IsNull())
+                case POSITION_XYZ:
+                    for (int k = 0; k < 3; k++)
                     {
-                        if (k == 0)
+                        if (!constraint_value_list[k].IsNull())
                         {
-                            apply_ee_force_x_axis_data += stiffness_lin_x_axis_data * (lin_pos_sp_x_axis_data - measured_lin_pos_x_axis_data);
-                        }
-                        else if (k == 1)
-                        {
-                            apply_ee_force_y_axis_data += stiffness_lin_y_axis_data * (lin_pos_sp_y_axis_data - measured_lin_pos_y_axis_data);
-                        }
-                        else if (k == 2)
-                        {
-                            apply_ee_force_z_axis_data += stiffness_lin_z_axis_data * (lin_pos_sp_z_axis_data - measured_lin_pos_z_axis_data);
+                            if (k == 0)
+                            {
+                                apply_ee_force_x_axis_data += stiffness_lin_x_axis_data * (lin_pos_sp_x_axis_data - measured_lin_pos_x_axis_data);
+                            }
+                            else if (k == 1)
+                            {
+                                apply_ee_force_y_axis_data += stiffness_lin_y_axis_data * (lin_pos_sp_y_axis_data - measured_lin_pos_y_axis_data);
+                            }
+                            else if (k == 2)
+                            {
+                                apply_ee_force_z_axis_data += stiffness_lin_z_axis_data * (lin_pos_sp_z_axis_data - measured_lin_pos_z_axis_data);
+                            }
                         }
                     }
-                }
-                break;
+                    break;
 
-            case VELOCITY_XYZ:
-                for (int k = 0; k < 3; k++)
-                {
-                    if (!constraint_value_list[k].IsNull())
+                case VELOCITY_XYZ:
+                    for (int k = 0; k < 3; k++)
                     {
-                        if (k == 0)
+                        if (!constraint_value_list[k].IsNull())
                         {
-                            apply_ee_force_x_axis_data += damping_lin_x_axis_data * (lin_vel_sp_x_axis_data - measured_lin_vel_x_axis_data);
-                        }
-                        else if (k == 1)
-                        {
-                            apply_ee_force_y_axis_data += damping_lin_y_axis_data * (lin_vel_sp_y_axis_data - measured_lin_vel_y_axis_data);
-                        }
-                        else if (k == 2)
-                        {
-                            apply_ee_force_z_axis_data += damping_lin_z_axis_data * (lin_vel_sp_z_axis_data - measured_lin_vel_z_axis_data);
+                            if (k == 0)
+                            {
+                                apply_ee_force_x_axis_data += damping_lin_x_axis_data * (lin_vel_sp_x_axis_data - measured_lin_vel_x_axis_data);
+                            }
+                            else if (k == 1)
+                            {
+                                apply_ee_force_y_axis_data += damping_lin_y_axis_data * (lin_vel_sp_y_axis_data - measured_lin_vel_y_axis_data);
+                            }
+                            else if (k == 2)
+                            {
+                                apply_ee_force_z_axis_data += damping_lin_z_axis_data * (lin_vel_sp_z_axis_data - measured_lin_vel_z_axis_data);
+                            }
                         }
                     }
-                }
-                break;
+                    break;
 
-            case FORCE_XYZ:
-                for (int k = 0; k < 3; k++)
-                {
-                    if (!constraint_value_list[k].IsNull())
+                case FORCE_XYZ:
+                    for (int k = 0; k < 3; k++)
                     {
-                        if (k == 0)
+                        if (!constraint_value_list[k].IsNull())
                         {
-                            apply_ee_force_x_axis_data += force_to_apply_x_axis;
-                        }
-                        else if (k == 1)
-                        {
-                            apply_ee_force_y_axis_data += force_to_apply_y_axis;
-                        }
-                        else if (k == 2)
-                        {
-                            apply_ee_force_z_axis_data += force_to_apply_z_axis;
+                            if (k == 0)
+                            {
+                                apply_ee_force_x_axis_data += force_to_apply_x_axis;
+                            }
+                            else if (k == 1)
+                            {
+                                apply_ee_force_y_axis_data += force_to_apply_y_axis;
+                            }
+                            else if (k == 2)
+                            {
+                                apply_ee_force_z_axis_data += force_to_apply_z_axis;
+                            }
                         }
                     }
-                }
-                break;
+                    break;
 
-            case ORIENTATION_QUATERNION:
-                for (int k = 0; k < 3; k++)
-                {
-                    if (!constraint_value_list[k].IsNull())
+                case ORIENTATION_QUATERNION:
+                    for (int k = 0; k < 3; k++)
                     {
-                        std::cout << "[get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE] ORIENTATION_QUATERNION cannot have NULL operator" << std::endl;
-                        break;
+                        if (!constraint_value_list[k].IsNull())
+                        {
+                            std::cout << "[get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE] ORIENTATION_QUATERNION cannot have NULL operator" << std::endl;
+                            flag = 1; // stop the execution
+                            break;
+                        }
                     }
+                    desired_endEffPose_GF_arm.M = KDL::Rotation::Quaternion(desired_quat_GF[0], desired_quat_GF[1], desired_quat_GF[2], desired_quat_GF[3]);
+                    angle_axis_diff_GF_arm = KDL::diff(measured_endEffPose_GF_arm.M, desired_endEffPose_GF_arm.M);
+                    apply_ee_torque_x_axis_data = -stiffness_roll_axis_data * angle_axis_diff_GF_arm(0);
+                    apply_ee_torque_y_axis_data = -stiffness_pitch_axis_data * angle_axis_diff_GF_arm(1);
+                    apply_ee_torque_z_axis_data = -stiffness_yaw_axis_data * angle_axis_diff_GF_arm(2);
+
+                    break;
+
+                default:
+
+                    break;
                 }
-                desired_endEffPose_GF_arm.M = KDL::Rotation::Quaternion(desired_quat_GF[0], desired_quat_GF[1], desired_quat_GF[2], desired_quat_GF[3]);
-                angle_axis_diff_GF_arm = KDL::diff(measured_endEffPose_GF_arm.M, desired_endEffPose_GF_arm.M);
-                apply_ee_torque_x_axis_data = -stiffness_roll_axis_data * angle_axis_diff_GF_arm(0);
-                apply_ee_torque_y_axis_data = -stiffness_pitch_axis_data * angle_axis_diff_GF_arm(1);
-                apply_ee_torque_z_axis_data = -stiffness_yaw_axis_data * angle_axis_diff_GF_arm(2);
-
-                break;
-
-            default:
-
-                break;
             }
-        }
-        else
-        {
-            std::cout << "[get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE] Constraint type not found" << std::endl;
+            else
+            {
+                std::cout << "[get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE] Constraint type not found" << std::endl;
+                flag = 1; // stop the execution
+            }
         }
     }
 }
 
 int main()
 {
-    // // handling signals
-    // struct sigaction sa;
-    // sa.sa_handler = handle_signal;
-    // sigemptyset(&sa.sa_mask);
-    // sa.sa_flags = 0;
+    // handling signals
+    struct sigaction sa;
+    sa.sa_handler = handle_signal;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
 
-    // for (int i = 1; i < NSIG; ++i)
-    // {
-    //     if (sigaction(i, &sa, NULL) == -1)
-    //     {
-    //         perror("sigaction");
-    //     }
-    // };
+    for (int i = 1; i < NSIG; ++i)
+    {
+        if (sigaction(i, &sa, NULL) == -1)
+        {
+            perror("sigaction");
+        }
+    };
 
     // initialise data by reading from the config file
     double TIMEOUT_DURATION_TASK; // in seconds
@@ -806,14 +825,6 @@ int main()
     double measured_lin_vel_y_axis_data = 0.0;
     double measured_lin_vel_z_axis_data = 0.0;
 
-    // double measured_force_x_axis_data = 0.0;
-    // double measured_force_y_axis_data = 0.0;
-    // double measured_force_z_axis_data = 0.0;
-
-    // double measured_torque_roll_axis_data = 0.0;
-    // double measured_torque_pitch_axis_data = 0.0;
-    // double measured_torque_yaw_axis_data = 0.0;
-
     double lin_pos_sp_x_axis_data = 0.0;
     double lin_pos_sp_y_axis_data = 0.0;
     double lin_pos_sp_z_axis_data = 0.0;
@@ -883,6 +894,7 @@ int main()
     else
     {
         std::cout << "Invalid robot to control" << std::endl;
+        flag = 1; // stop the execution
         return 0;
     }
 
@@ -915,14 +927,17 @@ int main()
     auto previous_time = std::chrono::high_resolution_clock::now();
     auto time_elapsed = std::chrono::duration<double>(previous_time - start_time_of_task);
 
+    bool pre_condition_satisfied = false;
+    bool post_condition_satisfied = false;
+    std::string constraint_type_str;
+
     while (time_elapsed < task_time_out)
     {
-
         // if any interruption (Ctrl+C or window resizing) is detected
-        // if (flag == 1)
-        // {
-        //     break;
-        // }
+        if (flag == 1)
+        {
+            break;
+        }
 
         kinova_feedback(kinova_arm, jnt_positions, jnt_velocities,
                         jnt_torques_read);
@@ -945,7 +960,7 @@ int main()
         time_elapsed = std::chrono::duration<double>(current_time - start_time_of_task);
         previous_time = current_time;
         time_period_of_complete_controller_cycle_data = time_period.count();
-        std::cout << "time_period: " << time_period_of_complete_controller_cycle_data << std::endl;
+        // std::cout << "time_period: " << time_period_of_complete_controller_cycle_data << std::endl;
 
         measured_lin_pos_x_axis_data = measured_endEffPose_GF_arm.p.x();
         measured_lin_vel_x_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.x();
@@ -955,16 +970,13 @@ int main()
         measured_lin_vel_z_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.z();
         measured_endEffPose_GF_arm.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
 
+        // std::cout << "measured_lin_pos_x_axis_data: " << measured_lin_pos_x_axis_data << std::endl;
+
         // TODO: gather f-t values from ft sensor
-
-        bool pre_condition_satisfied = false;
-        bool post_condition_satisfied = false;
-        std::string constraint_type_str;
-
-        // TODO: implement the motion specification realisation
         // check if any motion specification satisfies pre condition
         if (!pre_condition_satisfied)
         {
+            std::cout << "Waiting for pre-condition satisfaction" << std::endl;
             check_pre_or_post_condition_satisfaction(
                 measured_lin_pos_x_axis_data,
                 measured_lin_pos_y_axis_data,
@@ -981,10 +993,16 @@ int main()
                 pre_condition_satisfied,
                 motion_specification_params,
                 condition_type::PRE_CONDITION);
+
+            if (pre_condition_satisfied)
+            {
+                std::cout << "Pre condition satisfied. Now running controller to achieve per-conditoin until post-condition is satisfied." << std::endl;
+            }
         }
 
         if (pre_condition_satisfied)
         {
+            // check if the motion specification satisfies post condition
             check_pre_or_post_condition_satisfaction(
                 measured_lin_pos_x_axis_data,
                 measured_lin_pos_y_axis_data,
@@ -1004,7 +1022,11 @@ int main()
 
             if (post_condition_satisfied)
             {
-                // go to position control mode and end the execution
+                std::cout << "Post condition satisfied. Stoping execution." << std::endl;
+                // setting to Position mode: only safe when joint velocities are close to zero
+                // kinova_arm.set_control_mode(control_mode::POSITION, rne_output_jnt_torques_vector_to_set_control_mode.data());
+                flag = 1; // stop the execution
+                // TODO: go to position control mode and end the execution
             }
             else
             {
