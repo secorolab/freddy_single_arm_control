@@ -764,10 +764,14 @@ int main()
     ikSolverAcc = std::make_shared<KDL::ChainIkSolverVel_pinv>(chain_urdf);
     idSolver = std::make_shared<KDL::ChainIdSolver_RNE>(chain_urdf, GRAVITY);
 
-    // transformations
-    const KDL::Vector BL_x_axis_wrt_GF(0.15405787, -0.02716456, 0.98768834);
-    const KDL::Vector BL_y_axis_wrt_GF(-0.71221313, -0.69591499, 0.09194987);
-    const KDL::Vector BL_z_axis_wrt_GF(0.68484935, -0.71761021, -0.12655814);
+    // left arm
+    // const KDL::Vector BL_z_axis_wrt_GF(0.6992, 0.7092, -0.09);
+    // const KDL::Vector BL_y_axis_wrt_GF(0.7122, -0.702, 0.0);
+    // const KDL::Vector BL_x_axis_wrt_GF(0.0631, 0.064, 0.9959);
+    // right arm
+    const KDL::Vector BL_x_axis_wrt_GF(0.0631, -0.064, 0.9959);    
+    const KDL::Vector BL_y_axis_wrt_GF(-0.7122, -0.702, 0.0);
+    const KDL::Vector BL_z_axis_wrt_GF(0.6992, -0.7092, -0.09);
     const KDL::Vector BL_position_wrt_GF(0., 0.0, 0.0);
 
     const KDL::Rotation BL_wrt_GF(BL_x_axis_wrt_GF, BL_y_axis_wrt_GF, BL_z_axis_wrt_GF); // added as columns
@@ -930,6 +934,7 @@ int main()
     bool pre_condition_satisfied = false;
     bool post_condition_satisfied = false;
     std::string constraint_type_str;
+    std::cout << "Waiting for pre-condition satisfaction" << std::endl;
 
     while (time_elapsed < task_time_out)
     {
@@ -976,7 +981,6 @@ int main()
         // check if any motion specification satisfies pre condition
         if (!pre_condition_satisfied)
         {
-            std::cout << "Waiting for pre-condition satisfaction" << std::endl;
             check_pre_or_post_condition_satisfaction(
                 measured_lin_pos_x_axis_data,
                 measured_lin_pos_y_axis_data,
@@ -996,7 +1000,7 @@ int main()
 
             if (pre_condition_satisfied)
             {
-                std::cout << "Pre condition satisfied. Now running controller to achieve per-conditoin until post-condition is satisfied." << std::endl;
+                std::cout << "Pre condition satisfied. Now running controller to achieve per-condition until post-condition is satisfied." << std::endl;
             }
         }
 
