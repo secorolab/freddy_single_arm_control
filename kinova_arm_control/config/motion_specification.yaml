@@ -1,10 +1,6 @@
 arm_name: KINOVA_GEN3_2_RIGHT
 
 KINOVA_GEN3_2_RIGHT:
-  gravitational_acceleration:
-    - -9.5
-    - -1.0
-    - 1.1
 
   PRE_CONDITION:
     constraint_count: 1
@@ -12,7 +8,7 @@ KINOVA_GEN3_2_RIGHT:
       1:
         type: POSITION_XYZ
         value:
-          - 0.5
+          - 0.1
           - NULL
           - NULL
         operator:
@@ -37,7 +33,7 @@ KINOVA_GEN3_2_RIGHT:
       2:
         type: FORCE_XYZ
         value:
-          - 5.0
+          - 4.0
           - NULL
           - NULL
         operator: 
@@ -45,6 +41,31 @@ KINOVA_GEN3_2_RIGHT:
           - NULL
           - NULL          
 
+
+  PREVAIL_CONDITION:
+    constraint_count: 2
+    constraints:
+      1:
+        type: POSITION_XYZ
+        value:
+          - NULL
+          - -0.2
+          - NULL
+        operator:
+          - NULL
+          - GREATER_THAN
+          - NULL
+
+      2:
+        type: POSITION_XYZ
+        value:
+          - NULL
+          - 0.2
+          - NULL
+        operator:
+          - NULL
+          - LESS_THAN
+          - NULL
 
   POST_CONDITION:
     constraint_count: 1

@@ -1,5 +1,68 @@
-WRENCH_THRESHOLD_LINEAR: 50
-WRENCH_THRESHOLD_ROTATIONAL: 40
-JOINT_TORQUE_THRESHOLD: 50.0
-TIMEOUT_DURATION_TASK: 150.0
-DESIRED_TIME_STEP: 0.001
+
+arm_name: KINOVA_GEN3_2_RIGHT
+
+KINOVA_GEN3_2_RIGHT:
+  WRENCH_THRESHOLD_LINEAR: 50
+  WRENCH_THRESHOLD_ROTATIONAL: 40
+  JOINT_TORQUE_THRESHOLD: 40.0
+  TIMEOUT_DURATION_TASK: 150.0
+  DESIRED_TIME_STEP: 0.001
+  SAVE_LOG_EVERY_NTH_STEP: 100
+
+  gravitational_acceleration:
+    - -9.5
+    - -1.0
+    - 1.1
+
+  BL_x_axis_wrt_GF:
+    - 0.0631 
+    - -0.064
+    - 0.9959
+    
+  BL_y_axis_wrt_GF:
+    - -0.7122
+    - -0.702
+    - 0.0
+
+  BL_z_axis_wrt_GF:
+    - 0.6992
+    - -0.7092
+    - -0.09
+
+  BL_position_wrt_GF:
+    - 0.0
+    - -0.08
+    - 0.0
+
+KINOVA_GEN3_2_LEFT:
+  WRENCH_THRESHOLD_LINEAR: 50
+  WRENCH_THRESHOLD_ROTATIONAL: 40
+  JOINT_TORQUE_THRESHOLD: 40.0
+  TIMEOUT_DURATION_TASK: 150.0
+  DESIRED_TIME_STEP: 0.001
+  SAVE_LOG_EVERY_NTH_STEP: 100
+
+  gravitational_acceleration:
+    - -9.6
+    - 1.16
+    - 1.3
+
+  BL_x_axis_wrt_GF:
+    - 0.0631 
+    - 0.064
+    - 0.9959
+    
+  BL_y_axis_wrt_GF:
+    - 0.7122
+    - -0.702
+    - 0.0
+
+  BL_z_axis_wrt_GF:
+    - 0.6992
+    - 0.7092
+    - -0.09
+
+  BL_position_wrt_GF:
+    - 0.0
+    - 0.08
+    - 0.0
