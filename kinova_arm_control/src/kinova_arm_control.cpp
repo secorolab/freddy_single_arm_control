@@ -199,6 +199,10 @@ void check_3D_vector_constraint_satisfaction(
 
     for (int j = 0; j < 3; j++)
     {
+        if (!constraint_satisfied)
+        {
+            break;
+        }
         operator_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"][j].as<std::string>();
         if (operator_type_str != "null")
         {
@@ -720,15 +724,6 @@ void get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
                     break;
 
                 case ORIENTATION_QUATERNION:
-                    for (int k = 0; k < 3; k++)
-                    {
-                        if (!constraint_value_list[k].IsNull())
-                        {
-                            std::cout << "[get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE] ORIENTATION_QUATERNION cannot have NULL operator" << std::endl;
-                            flag = 1; // stop the execution
-                            break;
-                        }
-                    }
                     desired_endEffPose_GF_arm.M = KDL::Rotation::Quaternion(desired_quat_GF[0], desired_quat_GF[1], desired_quat_GF[2], desired_quat_GF[3]);
                     angle_axis_diff_GF_arm = KDL::diff(measured_endEffPose_GF_arm.M, desired_endEffPose_GF_arm.M);
                     apply_ee_torque_x_axis_data = stiffness_roll_axis_data * angle_axis_diff_GF_arm(0);
