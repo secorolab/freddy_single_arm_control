@@ -746,6 +746,19 @@ void get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
     }
 }
 
+void check_if_motion_specification_is_read(const YAML::Node &motion_specification_params,
+                                      const std::string &arm_name,
+                                      int &motion_specification_read,
+                                      const std::string &motion_spec_file_name)
+{
+    YAML::Node motion_specification_params = YAML::LoadFile(motion_spec_file_name);
+    motion_specification_read = motion_specification_params[arm_name]["MOTION_SPECIFICATION_READ"].as<int>();
+    if (motion_specification_read == 0)
+    {
+        std::cout << "[check_if_motion_specification_is_read] New motion specification is found!" << std::endl;
+    }
+}
+
 int main()
 {
     // handling signals
@@ -777,6 +790,8 @@ int main()
     double STIFFNESS_GAIN_ROLL;
     double STIFFNESS_GAIN_PITCH;
     double STIFFNESS_GAIN_YAW;
+    double STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
+    int MOTION_SPECIFICATION_READ;
     int SAVE_LOG_EVERY_NTH_STEP;
     std::string arm_name;
 
@@ -784,13 +799,19 @@ int main()
     int per_condition_constraint_count = 0;
     int post_condition_constraint_count = 0;
     int prevail_condition_constraint_count = 0;
+    int motion_specification_read = 0;
+    int frequency_of_checking_motion_specification = 10; // in Hz (every 0.1 seconds)
 
     // set robots to control
     robot_controlled robots_to_control = robot_controlled::KINOVA_GEN3_2_RIGHT;
 
-    YAML::Node config_file = YAML::LoadFile("kinova_arm_control/config/parameters.yaml");
-    YAML::Node impedance_gains = YAML::LoadFile("kinova_arm_control/config/impedance_gains.yaml");                  // in global frame
-    YAML::Node motion_specification_params = YAML::LoadFile("kinova_arm_control/config/motion_specification.yaml"); // in global frame
+    std::string motion_spec_file_name = "kinova_arm_control/config/motion_specification.yaml";
+    std::string impedance_gains_file_name = "kinova_arm_control/config/impedance_gains.yaml";
+    std::string config_file_name = "kinova_arm_control/config/parameters.yaml";
+
+    YAML::Node config_file = YAML::LoadFile(config_file_name);
+    YAML::Node impedance_gains = YAML::LoadFile(impedance_gains_file_name);
+    YAML::Node motion_specification_params = YAML::LoadFile(motion_spec_file_name);
 
     arm_name = motion_specification_params["arm_name"].as<std::string>();
 
@@ -805,6 +826,7 @@ int main()
     STIFFNESS_GAIN_ROLL = impedance_gains[arm_name]["STIFFNESS_GAIN_ROLL"].as<double>();
     STIFFNESS_GAIN_PITCH = impedance_gains[arm_name]["STIFFNESS_GAIN_PITCH"].as<double>();
     STIFFNESS_GAIN_YAW = impedance_gains[arm_name]["STIFFNESS_GAIN_YAW"].as<double>();
+    STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL = impedance_gains[arm_name]["STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL"].as<double>();
 
     pre_condition_constraint_count = motion_specification_params[arm_name]["PRE_CONDITION"]["constraint_count"].as<int>();
     per_condition_constraint_count = motion_specification_params[arm_name]["PER_CONDITION"]["constraint_count"].as<int>();
@@ -819,6 +841,16 @@ int main()
     DESIRED_TIME_STEP = config_file[arm_name]["DESIRED_TIME_STEP"].as<double>();
     SAVE_LOG_EVERY_NTH_STEP = config_file[arm_name]["SAVE_LOG_EVERY_NTH_STEP"].as<int>();
 
+    motion_specification_read = 1;
+    motion_specification_params[arm_name]["MOTION_SPECIFICATION_READ"] = motion_specification_read;
+    try {
+        std::ofstream fout(motion_spec_file_name);
+        fout << motion_specification_params;                    // Write the modified YAML content
+        std::cout << "YAML file updated successfully.\n";
+    } catch (const std::exception& e) {
+        std::cerr << "Error writing to the yaml file: " << e.what() << "\n";
+        return 1;
+    }
 
     // urdf and KDL
     KDL::Tree kinematic_tree;
@@ -865,6 +897,8 @@ int main()
 
     // Joint variables
     KDL::JntArray jnt_positions(kinova_constants::NUMBER_OF_JOINTS);
+    KDL::JntArray jnt_positions_setpoint(kinova_constants::NUMBER_OF_JOINTS);
+    KDL::JntArray torques_gravity_compensation(kinova_constants::NUMBER_OF_JOINTS);
     KDL::JntArray jnt_velocities(kinova_constants::NUMBER_OF_JOINTS);   // has only joint velocities of all joints
     KDL::JntArray jnt_torques_read(kinova_constants::NUMBER_OF_JOINTS); // to read from the robot
 
@@ -879,13 +913,15 @@ int main()
     // Link wrenches
     KDL::Wrenches linkWrenches_GF(NUM_LINKS, KDL::Wrench::Zero());
     KDL::Wrenches linkWrenches_EE(NUM_LINKS, KDL::Wrench::Zero());
+    KDL::Wrenches linkWrenches_zero(NUM_LINKS, KDL::Wrench::Zero());
 
     // cartesian acceleration
     KDL::Twist xdd;
     KDL::Twist xdd_minus_jd_qd;
     KDL::Twist jd_qd;
 
-    // TODO: initialise based on the motion specification
+    bool switch_to_joint_impendance_control = false;
+    double jnt_angle_diff = 0.0;
 
     double time_period_of_complete_controller_cycle_data = 0.0;
 
@@ -900,6 +936,7 @@ int main()
     double stiffness_roll_axis_data = STIFFNESS_GAIN_ROLL;
     double stiffness_pitch_axis_data = STIFFNESS_GAIN_PITCH;
     double stiffness_yaw_axis_data = STIFFNESS_GAIN_YAW;
+    double stiffness_joint_impedance_ctrl = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
 
     double measured_lin_pos_x_axis_data = 0.0;
     double measured_lin_pos_y_axis_data = 0.0;
@@ -1155,11 +1192,39 @@ int main()
 
             if (post_condition_satisfied)
             {
-                std::cout << "Post condition satisfied. Motion specification execution successful. Stoping execution." << std::endl;
-                // setting to Position mode: only safe when joint velocities are close to zero
-                // kinova_arm.set_control_mode(control_mode::POSITION, rne_output_jnt_torques_vector_to_set_control_mode.data());
-                flag = 1; // stop the execution
-                // TODO: go to position control mode and end the execution
+                std::cout << "Post condition satisfied. Switching to impedance control mode." << std::endl;
+                switch_to_joint_impendance_control = true;
+                jnt_positions_setpoint = jnt_positions;
+
+                if (iterationCount % frequency_of_checking_motion_specification == 0)
+                {
+                    check_if_motion_specification_is_read(motion_specification_params, arm_name, motion_specification_read, motion_spec_file_name);
+                }
+
+                if (!motion_specification_read){
+                    std::cout << "New motion specification is found. Reading the motion specification." << std::endl;
+                    motion_specification_params = YAML::LoadFile(motion_spec_file_name);
+                    motion_specification_read = 1;
+                    motion_specification_params[arm_name]["MOTION_SPECIFICATION_READ"] = motion_specification_read;
+                    try {
+                        std::ofstream fout(motion_spec_file_name);
+                        fout << motion_specification_params;                    // Write the modified YAML content
+                        std::cout << "YAML file updated successfully.\n";
+                    } catch (const std::exception& e) {
+                        std::cerr << "Error writing to the yaml file: " << e.what() << "\n";
+                        return 1;
+                    }
+                }
+                // updating the motion specification parameters
+                pre_condition_constraint_count = motion_specification_params[arm_name]["PRE_CONDITION"]["constraint_count"].as<int>();
+                per_condition_constraint_count = motion_specification_params[arm_name]["PER_CONDITION"]["constraint_count"].as<int>();
+                post_condition_constraint_count = motion_specification_params[arm_name]["POST_CONDITION"]["constraint_count"].as<int>();
+                prevail_condition_constraint_count = motion_specification_params[arm_name]["PREVAIL_CONDITION"]["constraint_count"].as<int>();
+
+                // update flags
+                pre_condition_satisfied = false;
+                post_condition_satisfied = false;
+                prevail_condition_satisfied = false;
             }
             else if (!prevail_condition_satisfied)
             {
@@ -1227,54 +1292,74 @@ int main()
             }
         }
 
-        // write the ee torques to linkWrenches_GF
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(0) = -apply_ee_force_x_axis_data;
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(1) = -apply_ee_force_y_axis_data;
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(2) = -apply_ee_force_z_axis_data;
-        // TODO: apply only when a per condition constraint exists for orientation
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(0) = -apply_ee_torque_x_axis_data;
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(1) = -apply_ee_torque_y_axis_data;
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(2) = -apply_ee_torque_z_axis_data;
-
-        apply_ee_force_x_axis_data = 0.0;
-        apply_ee_force_y_axis_data = 0.0;
-        apply_ee_force_z_axis_data = 0.0;
-
-        apply_ee_torque_x_axis_data = 0.0;
-        apply_ee_torque_y_axis_data = 0.0;
-        apply_ee_torque_z_axis_data = 0.0;
-
-        // thresholding in cartesian space of the end effector
-        for (int i = 0; i < 3; i++)
+        if (switch_to_joint_impendance_control)
         {
-            if (linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i) > 0.0)
-            {
-                linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::min(WRENCH_THRESHOLD_LINEAR, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i));
-            }
-            else
-            {
-                linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::max(-WRENCH_THRESHOLD_LINEAR, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i));
-            }
+            calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
+                                        jnt_velocity, jd_qd, xdd,
+                                        xdd_minus_jd_qd, jnt_accelerations,
+                                        jnt_positions, jnt_velocities,
+                                        linkWrenches_zero, torques_gravity_compensation);
 
-            if (linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i) > 0.0)
+            for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
             {
-                linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::min(WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i));
-            }
-            else
-            {
-                linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::max(-WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i));
+                jnt_angle_diff = jnt_positions_setpoint(i) - jnt_positions(i);
+                if (jnt_angle_diff > abs(angle_diff - 2*M_PI))
+                {
+                    jnt_angle_diff = jnt_angle_diff - 2*M_PI;
+                }
+                jnt_torques_cmd(i) = stiffness_joint_impedance_ctrl * jnt_angle_diff + torques_gravity_compensation(i);
             }
         }
+        else{
+            // write the ee torques to linkWrenches_GF
+            linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(0) = -apply_ee_force_x_axis_data;
+            linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(1) = -apply_ee_force_y_axis_data;
+            linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(2) = -apply_ee_force_z_axis_data;
+            // TODO: apply only when a per condition constraint exists for orientation
+            linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(0) = -apply_ee_torque_x_axis_data;
+            linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(1) = -apply_ee_torque_y_axis_data;
+            linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(2) = -apply_ee_torque_z_axis_data;
 
-        // LinkWrenches are calculated in BL frame. As RNE solver requires them in EE frame, the wrenches are transformed from BL to EE frame
-        linkWrenches_EE[NUM_LINKS - 1].force = measured_endEffPose_GF_arm.M.Inverse() * linkWrenches_GF[NUM_LINKS - 1].force;
-        linkWrenches_EE[NUM_LINKS - 1].torque = measured_endEffPose_GF_arm.M.Inverse() * linkWrenches_GF[NUM_LINKS - 1].torque;
+            apply_ee_force_x_axis_data = 0.0;
+            apply_ee_force_y_axis_data = 0.0;
+            apply_ee_force_z_axis_data = 0.0;
 
-        calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
-                                     jnt_velocity, jd_qd, xdd,
-                                     xdd_minus_jd_qd, jnt_accelerations,
-                                     jnt_positions, jnt_velocities,
-                                     linkWrenches_EE, jnt_torques_cmd);
+            apply_ee_torque_x_axis_data = 0.0;
+            apply_ee_torque_y_axis_data = 0.0;
+            apply_ee_torque_z_axis_data = 0.0;
+
+            // thresholding in cartesian space of the end effector
+            for (int i = 0; i < 3; i++)
+            {
+                if (linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i) > 0.0)
+                {
+                    linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::min(WRENCH_THRESHOLD_LINEAR, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i));
+                }
+                else
+                {
+                    linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::max(-WRENCH_THRESHOLD_LINEAR, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i));
+                }
+
+                if (linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i) > 0.0)
+                {
+                    linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::min(WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i));
+                }
+                else
+                {
+                    linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::max(-WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i));
+                }
+            }
+
+            // LinkWrenches are calculated in BL frame. As RNE solver requires them in EE frame, the wrenches are transformed from BL to EE frame
+            linkWrenches_EE[NUM_LINKS - 1].force = measured_endEffPose_GF_arm.M.Inverse() * linkWrenches_GF[NUM_LINKS - 1].force;
+            linkWrenches_EE[NUM_LINKS - 1].torque = measured_endEffPose_GF_arm.M.Inverse() * linkWrenches_GF[NUM_LINKS - 1].torque;
+
+            calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
+                                        jnt_velocity, jd_qd, xdd,
+                                        xdd_minus_jd_qd, jnt_accelerations,
+                                        jnt_positions, jnt_velocities,
+                                        linkWrenches_EE, jnt_torques_cmd);
+        }
 
         // thresholding the jnt_torques_cmd before sending to the robot
         for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)

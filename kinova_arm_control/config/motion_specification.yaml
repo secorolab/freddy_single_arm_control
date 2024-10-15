@@ -2,6 +2,8 @@ arm_name: KINOVA_GEN3_2_RIGHT
 
 KINOVA_GEN3_2_RIGHT:
 
+  MOTION_SPECIFICATION_READ: 0
+
   PRE_CONDITION:
     constraint_count: 1
     constraints:
