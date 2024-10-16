@@ -1214,17 +1214,19 @@ int main()
                         std::cerr << "Error writing to the yaml file: " << e.what() << "\n";
                         return 1;
                     }
-                }
-                // updating the motion specification parameters
-                pre_condition_constraint_count = motion_specification_params[arm_name]["PRE_CONDITION"]["constraint_count"].as<int>();
-                per_condition_constraint_count = motion_specification_params[arm_name]["PER_CONDITION"]["constraint_count"].as<int>();
-                post_condition_constraint_count = motion_specification_params[arm_name]["POST_CONDITION"]["constraint_count"].as<int>();
-                prevail_condition_constraint_count = motion_specification_params[arm_name]["PREVAIL_CONDITION"]["constraint_count"].as<int>();
 
-                // update flags
-                pre_condition_satisfied = false;
-                post_condition_satisfied = false;
-                prevail_condition_satisfied = false;
+                    // updating the motion specification parameters
+                    pre_condition_constraint_count = motion_specification_params[arm_name]["PRE_CONDITION"]["constraint_count"].as<int>();
+                    per_condition_constraint_count = motion_specification_params[arm_name]["PER_CONDITION"]["constraint_count"].as<int>();
+                    post_condition_constraint_count = motion_specification_params[arm_name]["POST_CONDITION"]["constraint_count"].as<int>();
+                    prevail_condition_constraint_count = motion_specification_params[arm_name]["PREVAIL_CONDITION"]["constraint_count"].as<int>();
+
+                    // updating flags
+                    pre_condition_satisfied = false;
+                    post_condition_satisfied = false;
+                    prevail_condition_satisfied = false;
+                    switch_to_joint_impendance_control = false;
+                }
             }
             else if (!prevail_condition_satisfied)
             {
