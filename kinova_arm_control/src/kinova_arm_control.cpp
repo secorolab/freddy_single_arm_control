@@ -746,12 +746,12 @@ void get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
     }
 }
 
-void check_if_motion_specification_is_read(const YAML::Node &motion_specification_params,
+void check_if_motion_specification_is_read(YAML::Node &motion_specification_params,
                                       const std::string &arm_name,
                                       int &motion_specification_read,
                                       const std::string &motion_spec_file_name)
 {
-    YAML::Node motion_specification_params = YAML::LoadFile(motion_spec_file_name);
+    motion_specification_params = YAML::LoadFile(motion_spec_file_name);
     motion_specification_read = motion_specification_params[arm_name]["MOTION_SPECIFICATION_READ"].as<int>();
     if (motion_specification_read == 0)
     {
@@ -1121,8 +1121,6 @@ int main()
         measured_lin_vel_z_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.z();
         measured_endEffPose_GF_arm.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
 
-        // std::cout << "measured_lin_pos_x_axis_data: " << measured_lin_pos_x_axis_data << std::endl;
-
         // TODO: gather f-t values from ft sensor
         // check if any motion specification satisfies pre condition
         if (!pre_condition_satisfied)
@@ -1154,47 +1152,53 @@ int main()
         if (pre_condition_satisfied)
         {
             // check if the motion specification satisfies post condition
-            check_pre_or_post_or_prevail_condition_satisfaction(
-                measured_lin_pos_x_axis_data,
-                measured_lin_pos_y_axis_data,
-                measured_lin_pos_z_axis_data,
-                measured_roll_data,
-                measured_pitch_data,
-                measured_yaw_data,
-                measured_lin_vel_x_axis_data,
-                measured_lin_vel_y_axis_data,
-                measured_lin_vel_z_axis_data,
-                linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS],
-                post_condition_constraint_count,
-                constraint_type_str,
-                arm_name,
-                post_condition_satisfied,
-                motion_specification_params,
-                condition_type::POST_CONDITION);
+            if (!post_condition_satisfied)
+            {
+                check_pre_or_post_or_prevail_condition_satisfaction(
+                    measured_lin_pos_x_axis_data,
+                    measured_lin_pos_y_axis_data,
+                    measured_lin_pos_z_axis_data,
+                    measured_roll_data,
+                    measured_pitch_data,
+                    measured_yaw_data,
+                    measured_lin_vel_x_axis_data,
+                    measured_lin_vel_y_axis_data,
+                    measured_lin_vel_z_axis_data,
+                    linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS],
+                    post_condition_constraint_count,
+                    constraint_type_str,
+                    arm_name,
+                    post_condition_satisfied,
+                    motion_specification_params,
+                    condition_type::POST_CONDITION);
 
-            check_pre_or_post_or_prevail_condition_satisfaction(
-                measured_lin_pos_x_axis_data,
-                measured_lin_pos_y_axis_data,
-                measured_lin_pos_z_axis_data,
-                measured_roll_data,
-                measured_pitch_data,
-                measured_yaw_data,
-                measured_lin_vel_x_axis_data,
-                measured_lin_vel_y_axis_data,
-                measured_lin_vel_z_axis_data,
-                linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS],
-                prevail_condition_constraint_count,
-                constraint_type_str,
-                arm_name,
-                prevail_condition_satisfied,
-                motion_specification_params,
-                condition_type::PREVAIL_CONDITION);
+                check_pre_or_post_or_prevail_condition_satisfaction(
+                    measured_lin_pos_x_axis_data,
+                    measured_lin_pos_y_axis_data,
+                    measured_lin_pos_z_axis_data,
+                    measured_roll_data,
+                    measured_pitch_data,
+                    measured_yaw_data,
+                    measured_lin_vel_x_axis_data,
+                    measured_lin_vel_y_axis_data,
+                    measured_lin_vel_z_axis_data,
+                    linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS],
+                    prevail_condition_constraint_count,
+                    constraint_type_str,
+                    arm_name,
+                    prevail_condition_satisfied,
+                    motion_specification_params,
+                    condition_type::PREVAIL_CONDITION);
+            }
 
             if (post_condition_satisfied)
             {
-                std::cout << "Post condition satisfied. Switching to impedance control mode." << std::endl;
-                switch_to_joint_impendance_control = true;
-                jnt_positions_setpoint = jnt_positions;
+                if (!switch_to_joint_impendance_control)
+                {
+                    std::cout << "Post condition satisfied. Switching to impedance control mode." << std::endl;
+                    jnt_positions_setpoint = jnt_positions;
+                    switch_to_joint_impendance_control = true;
+                }
 
                 if (iterationCount % frequency_of_checking_motion_specification == 0)
                 {
@@ -1213,7 +1217,7 @@ int main()
                     } catch (const std::exception& e) {
                         std::cerr << "Error writing to the yaml file: " << e.what() << "\n";
                         return 1;
-                    }
+                    };
 
                     // updating the motion specification parameters
                     pre_condition_constraint_count = motion_specification_params[arm_name]["PRE_CONDITION"]["constraint_count"].as<int>();
@@ -1231,10 +1235,7 @@ int main()
             else if (!prevail_condition_satisfied)
             {
                 std::cout << "Prevail condition is not satisfied. Motion specification execution unsuccessful. Stoping execution." << std::endl;
-                // setting to Position mode: only safe when joint velocities are close to zero
-                // kinova_arm.set_control_mode(control_mode::POSITION, rne_output_jnt_torques_vector_to_set_control_mode.data());
                 flag = 1; // stop the execution
-                // TODO: go to position control mode and end the execution
             }
             else
             {
@@ -1252,6 +1253,8 @@ int main()
                     desired_quat_GF,
                     motion_specification_params,
                     arm_name);
+
+                    std::cout << "----------------------------------------------------getting force and torque from controller" << std::endl;
 
                 get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
                     stiffness_lin_x_axis_data,
@@ -1305,7 +1308,7 @@ int main()
             for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
             {
                 jnt_angle_diff = jnt_positions_setpoint(i) - jnt_positions(i);
-                if (jnt_angle_diff > abs(angle_diff - 2*M_PI))
+                if (jnt_angle_diff > abs(jnt_angle_diff - 2*M_PI))
                 {
                     jnt_angle_diff = jnt_angle_diff - 2*M_PI;
                 }
@@ -1321,14 +1324,6 @@ int main()
             linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(0) = -apply_ee_torque_x_axis_data;
             linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(1) = -apply_ee_torque_y_axis_data;
             linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(2) = -apply_ee_torque_z_axis_data;
-
-            apply_ee_force_x_axis_data = 0.0;
-            apply_ee_force_y_axis_data = 0.0;
-            apply_ee_force_z_axis_data = 0.0;
-
-            apply_ee_torque_x_axis_data = 0.0;
-            apply_ee_torque_y_axis_data = 0.0;
-            apply_ee_torque_z_axis_data = 0.0;
 
             // thresholding in cartesian space of the end effector
             for (int i = 0; i < 3; i++)
@@ -1385,6 +1380,12 @@ int main()
         appendDataToFile_dynamic_size(data_stream_log, data_array_log);
         data_array_log.clear();
         }
+        apply_ee_force_x_axis_data = 0.0;
+        apply_ee_force_y_axis_data = 0.0;
+        apply_ee_force_z_axis_data = 0.0;
+        apply_ee_torque_x_axis_data = 0.0;
+        apply_ee_torque_y_axis_data = 0.0;
+        apply_ee_torque_z_axis_data = 0.0;
     }
 
   if (!data_array_log.empty())
