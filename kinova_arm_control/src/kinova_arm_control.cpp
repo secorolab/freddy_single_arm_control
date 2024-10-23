@@ -503,7 +503,6 @@ void get_setpoints_from_motion_specification(
     const std::string &arm_name)
 {
     std::string condition_type_str = "PER_CONDITION";
-    YAML::Node constraint_value_list;
 
     if (per_condition_constraint_count > 0)
     {
@@ -514,7 +513,7 @@ void get_setpoints_from_motion_specification(
 
             if (constraint_iterator != constraint_type_map.end())
             {
-                constraint_value_list = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["value"];
+                auto constraint_value_list = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["value"];
                 constraint_type constraint_type_ = constraint_iterator->second;
                 switch (constraint_type_)
                 {
@@ -643,7 +642,6 @@ void get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
     const YAML::Node &motion_specification_params,
     const std::string &arm_name)
 {
-    YAML::Node constraint_value_list;
     std::string condition_type_str = "PER_CONDITION";
 
     if (per_condition_constraint_count > 0)
@@ -656,7 +654,7 @@ void get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
             if (constraint_iterator != constraint_type_map.end())
             {
                 constraint_type constraint_type_ = constraint_iterator->second;
-                constraint_value_list = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["value"];
+                auto constraint_value_list = motion_specification_params[arm_name][condition_type_str]["constraints"][i]["value"];
 
                 switch (constraint_type_)
                 {
