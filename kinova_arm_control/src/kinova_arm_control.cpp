@@ -1144,7 +1144,7 @@ int main()
         measured_lin_vel_y_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.y();
         measured_lin_pos_z_axis_data = measured_endEffPose_GF_arm.p.z();
         measured_lin_vel_z_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.z();
-        measured_quat_GF = measured_endEffPose_GF_arm.M.GetQuaternion();
+        measured_endEffPose_GF_arm.M.GetQuaternion(measured_quat_GF[0], measured_quat_GF[1], measured_quat_GF[2], measured_quat_GF[3]);
         measured_endEffPose_GF_arm.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
 
         // TODO: gather f-t values from ft sensor
