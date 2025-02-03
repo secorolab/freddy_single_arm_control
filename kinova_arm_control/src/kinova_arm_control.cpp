@@ -3,6 +3,9 @@
 #include <controllers/control_blocks.h>
 #include <functions/monitors.h>
 #include <iostream>
+#include <ctime>
+#include <sstream>
+#include <fstream>
 #include <kinova_mediator/mediator.hpp>
 #include <math.h>
 #include <vector>
@@ -163,6 +166,23 @@ std::unordered_map<std::string, condition_type> condition_type_map = {
     {"POST_CONDITION", condition_type::POST_CONDITION},
     {"PREVAIL_CONDITION", condition_type::PREVAIL_CONDITION}};
 // measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data, constraint_satisfied, i, motion_specification_params);
+
+std::string getTimestamp() {
+    // Get current time
+    std::time_t now = std::time(nullptr);
+    std::tm* localTime = std::localtime(&now);
+
+    // Format: YYYYMMDD_HHMMSS
+    std::ostringstream oss;
+    oss << (localTime->tm_year + 1900)  // Year
+        << (localTime->tm_mon + 1)      // Month
+        << localTime->tm_mday << "_"    // Day
+        << localTime->tm_hour           // Hour
+        << localTime->tm_min            // Minute
+        << localTime->tm_sec;           // Second
+
+    return oss.str();
+}
 
 void check_3D_vector_constraint_satisfaction(
     const double &measured_x_axis_data,
@@ -1005,7 +1025,7 @@ int main()
     int iterationCount = 0;
     
     // logging
-    std::string log_file = "log_files/kinova_arm_ctrl_log_file.csv";
+    std::string log_file = "log_files/kinova_arm_ctrl_log_file" + getTimestamp() + ".csv";
     std::ofstream data_stream_log(log_file);
 
     if (!data_stream_log.is_open())
