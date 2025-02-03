@@ -203,9 +203,10 @@ void check_3D_vector_constraint_satisfaction(
         {
             break;
         }
-        operator_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"][j].as<std::string>();
-        if (operator_type_str != "null")
+        auto operator_value = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"][j];
+        if (!operator_value.IsNull())
         {
+            operator_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"][j].as<std::string>();
             auto operator_iterator = operator_type_map.find(operator_type_str);
             if (operator_iterator != operator_type_map.end())
             {
@@ -289,10 +290,10 @@ void check_1D_vector_constraint_satisfaction(
         flag = 1; // stop the execution
     }
 
-    operator_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"].as<std::string>();
-
-    if (operator_type_str != "null")
+    auto operator_value = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"];
+    if (!operator_value.IsNull())
     {
+        operator_type_str = motion_specification_params[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"].as<std::string>();
         auto operator_iterator = operator_type_map.find(operator_type_str);
 
         if (operator_iterator != operator_type_map.end())
@@ -940,6 +941,12 @@ int main()
     double measured_lin_pos_y_axis_data = 0.0;
     double measured_lin_pos_z_axis_data = 0.0;
 
+    double measured_quat_GF[4];
+    measured_quat_GF[0] = 0.0;
+    measured_quat_GF[1] = 0.0;
+    measured_quat_GF[2] = 0.0;
+    measured_quat_GF[3] = 1.0;
+
     double measured_lin_vel_x_axis_data = 0.0;
     double measured_lin_vel_y_axis_data = 0.0;
     double measured_lin_vel_z_axis_data = 0.0;
@@ -994,7 +1001,7 @@ int main()
 
 
     // initialise multi-dimensional array to store data
-    std::vector<std::array<double, 20>> data_array_log;
+    std::vector<std::array<double, 24>> data_array_log;
     int iterationCount = 0;
     
     // logging
@@ -1007,7 +1014,7 @@ int main()
         return 0;
     }
     // adding header
-    data_stream_log << "time_period_of_complete_controller_cycle_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,measured_lin_vel_x_axis_data,measured_lin_vel_y_axis_data,measured_lin_vel_z_axis_data,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data,apply_ee_torque_x_axis_data,apply_ee_torque_y_axis_data,apply_ee_torque_z_axis_data,jnt_torque_command_0,jnt_torque_command_1,jnt_torque_command_2,jnt_torque_command_3,jnt_torque_command_4,jnt_torque_command_5,jnt_torque_command_6\n";
+    data_stream_log << "time_period_of_complete_controller_cycle_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,measured_orient_quat_x_data,measured_orient_quat_y_data,measured_orient_quat_z_data,measured_orient_quat_w_data,measured_lin_vel_x_axis_data,measured_lin_vel_y_axis_data,measured_lin_vel_z_axis_data,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data,apply_ee_torque_x_axis_data,apply_ee_torque_y_axis_data,apply_ee_torque_z_axis_data,jnt_torque_command_0,jnt_torque_command_1,jnt_torque_command_2,jnt_torque_command_3,jnt_torque_command_4,jnt_torque_command_5,jnt_torque_command_6\n";
 
 
     // joint torques that will be calculated before setting the control mode
@@ -1117,6 +1124,7 @@ int main()
         measured_lin_vel_y_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.y();
         measured_lin_pos_z_axis_data = measured_endEffPose_GF_arm.p.z();
         measured_lin_vel_z_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.z();
+        measured_quat_GF = measured_endEffPose_GF_arm.M.GetQuaternion();
         measured_endEffPose_GF_arm.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
 
         // TODO: gather f-t values from ft sensor
@@ -1369,7 +1377,7 @@ int main()
             }
         }
         kinova_arm.set_joint_torques(jnt_torques_cmd);
-        data_array_log.push_back({time_period_of_complete_controller_cycle_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,measured_lin_vel_x_axis_data,measured_lin_vel_y_axis_data,measured_lin_vel_z_axis_data,linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(0),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(1),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(2),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(0),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(1),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(2),jnt_torques_cmd(0),jnt_torques_cmd(1),jnt_torques_cmd(2),jnt_torques_cmd(3),jnt_torques_cmd(4),jnt_torques_cmd(5),jnt_torques_cmd(6)});
+        data_array_log.push_back({time_period_of_complete_controller_cycle_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,measured_quat_GF[0],measured_quat_GF[1],measured_quat_GF[2],measured_quat_GF[3],measured_lin_vel_x_axis_data,measured_lin_vel_y_axis_data,measured_lin_vel_z_axis_data,linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(0),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(1),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(2),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(0),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(1),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(2),jnt_torques_cmd(0),jnt_torques_cmd(1),jnt_torques_cmd(2),jnt_torques_cmd(3),jnt_torques_cmd(4),jnt_torques_cmd(5),jnt_torques_cmd(6)});
 
         // Check if we should write to file
         iterationCount++;
