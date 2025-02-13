@@ -771,10 +771,15 @@ void check_if_motion_specification_is_read(YAML::Node &motion_specification_para
                                       const std::string &motion_spec_file_name)
 {
     motion_specification_params = YAML::LoadFile(motion_spec_file_name);
-    motion_specification_read = motion_specification_params[arm_name]["MOTION_SPECIFICATION_READ"].as<int>();
-    if (motion_specification_read == 0)
-    {
-        std::cout << "[check_if_motion_specification_is_read] New motion specification is found!" << std::endl;
+    if (motion_specification_params.size() == 0) {
+        std::cerr << "YAML file is empty! will retry.." << std::endl;
+    }
+    else {
+        motion_specification_read = motion_specification_params[arm_name]["MOTION_SPECIFICATION_READ"].as<int>();
+        if (motion_specification_read == 0)
+        {
+            std::cout << "[check_if_motion_specification_is_read] New motion specification is found!" << std::endl;
+        }
     }
 }
 
