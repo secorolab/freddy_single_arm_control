@@ -1039,7 +1039,7 @@ int main()
         return 0;
     }
     // adding header
-    data_stream_log << "time_period_of_complete_controller_cycle_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,measured_orient_quat_x_data,measured_orient_quat_y_data,measured_orient_quat_z_data,measured_orient_quat_w_data,measured_lin_vel_x_axis_data,measured_lin_vel_y_axis_data,measured_lin_vel_z_axis_data,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data,apply_ee_torque_x_axis_data,apply_ee_torque_y_axis_data,apply_ee_torque_z_axis_data,jnt_torque_command_0,jnt_torque_command_1,jnt_torque_command_2,jnt_torque_command_3,jnt_torque_command_4,jnt_torque_command_5,jnt_torque_command_6\n";
+    data_stream_log << "time_elapsed,time_period_of_complete_controller_cycle_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,measured_orient_quat_x_data,measured_orient_quat_y_data,measured_orient_quat_z_data,measured_orient_quat_w_data,measured_lin_vel_x_axis_data,measured_lin_vel_y_axis_data,measured_lin_vel_z_axis_data,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data,apply_ee_torque_x_axis_data,apply_ee_torque_y_axis_data,apply_ee_torque_z_axis_data,jnt_torque_command_0,jnt_torque_command_1,jnt_torque_command_2,jnt_torque_command_3,jnt_torque_command_4,jnt_torque_command_5,jnt_torque_command_6\n";
 
 
     // joint torques that will be calculated before setting the control mode
@@ -1141,7 +1141,6 @@ int main()
         time_elapsed = std::chrono::duration<double>(current_time - start_time_of_task);
         previous_time = current_time;
         time_period_of_complete_controller_cycle_data = time_period.count();
-        // std::cout << "time_period: " << time_period_of_complete_controller_cycle_data << std::endl;
 
         measured_lin_pos_x_axis_data = measured_endEffPose_GF_arm.p.x();
         measured_lin_vel_x_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.x();
@@ -1402,7 +1401,7 @@ int main()
             }
         }
         kinova_arm.set_joint_torques(jnt_torques_cmd);
-        data_array_log.push_back({time_period_of_complete_controller_cycle_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,measured_quat_GF[0],measured_quat_GF[1],measured_quat_GF[2],measured_quat_GF[3],measured_lin_vel_x_axis_data,measured_lin_vel_y_axis_data,measured_lin_vel_z_axis_data,linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(0),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(1),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(2),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(0),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(1),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(2),jnt_torques_cmd(0),jnt_torques_cmd(1),jnt_torques_cmd(2),jnt_torques_cmd(3),jnt_torques_cmd(4),jnt_torques_cmd(5),jnt_torques_cmd(6)});
+        data_array_log.push_back({time_elapsed,time_period_of_complete_controller_cycle_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,measured_quat_GF[0],measured_quat_GF[1],measured_quat_GF[2],measured_quat_GF[3],measured_lin_vel_x_axis_data,measured_lin_vel_y_axis_data,measured_lin_vel_z_axis_data,linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(0),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(1),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(2),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(0),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(1),linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(2),jnt_torques_cmd(0),jnt_torques_cmd(1),jnt_torques_cmd(2),jnt_torques_cmd(3),jnt_torques_cmd(4),jnt_torques_cmd(5),jnt_torques_cmd(6)});
 
         // Check if we should write to file
         iterationCount++;
