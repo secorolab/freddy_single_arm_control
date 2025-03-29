@@ -1,4 +1,4 @@
-#include "functions/monitors.h"
+#include "motion_specificatoin_action/monitors.h"
 #include "functions/utilities.h"
 
 void less_than_monitor(const double *value_to_compare,
@@ -159,6 +159,13 @@ void lower_than_upper_limit_monitor(const double *value_to_compare,
     {
         *detection_flag = false;
     }
+}
+
+void get_current_time_sec(double *current_time)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    *current_time = (double) tv.tv_sec + (double)tv.tv_usec / 1000000.0;
 }
 
 void event_consistent_for_n_sec(const double *time_in_seconds,

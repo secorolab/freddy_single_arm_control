@@ -1,0 +1,437 @@
+#ifndef MOTION_SPECIFICATION_ACTION_SERVER_HPP
+#define MOTION_SPECIFICATION_ACTION_SERVER_HPP
+
+#include <functional>
+#include <memory>
+#include <thread>
+#include <csignal>
+
+#include <motion_specification_interfaces/action/motion_specification.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
+#include <ament_index_cpp/get_package_share_directory.hpp>
+
+#include <Eigen/Core>
+#include <chrono>
+#include <iostream>
+#include <ctime>
+#include <sstream>
+#include <fstream>
+#include <kinova_mediator/mediator.hpp>
+#include <math.h>
+#include <vector>
+#include <yaml-cpp/yaml.h>
+
+// KDL libraries
+#include <kdl/chain.hpp>
+#include <kdl/chainfksolver.hpp>
+#include <kdl/chainfksolverpos_recursive.hpp>
+#include <kdl/chainfksolvervel_recursive.hpp>
+#include <kdl/chainidsolver_recursive_newton_euler.hpp>
+#include <kdl/chainiksolvervel_pinv.hpp>
+#include <kdl/chainjnttojacdotsolver.hpp>
+#include <kdl/chainjnttojacsolver.hpp>
+#include <kdl/frames.hpp>
+#include <kdl/frames_io.hpp>
+#include <kdl_parser/kdl_parser.hpp>
+
+#include "motion_specification_action/visibility_control.h"
+#include "motion_specification_action/control_blocks.h"
+#include "motion_specification_action/monitors.h"
+
+namespace motion_specification_action
+{
+
+  // enum for arms being controlled
+  enum robot_controlled
+  {
+    KINOVA_GEN3_1_LEFT = 1,  // "192.168.1.10"
+    KINOVA_GEN3_2_RIGHT = 2, // "192.168.1.12"
+  };
+
+  enum constraint_type
+  {
+    POSITION_XYZ = 1,
+    FORCE_XYZ = 2,
+    VELOCITY_XYZ = 3,
+    TORQUE_RPY = 4,
+    ORIENTATION_QUATERNION = 5,
+    ORIENTATION_ROLL = 6,
+    ORIENTATION_PITCH = 7,
+    ORIENTATION_YAW = 8
+  };
+
+  enum operator_type
+  {
+    GREATER_THAN = 1,
+    LESS_THAN = 2,
+  };
+
+  enum condition_type
+  {
+    PRE_CONDITION = 1,
+    PER_CONDITION = 2,
+    POST_CONDITION = 3,
+    PREVAIL_CONDITION = 4
+  };
+
+  class MotionSpecificationActionServer : public rclcpp::Node
+  {
+  public:
+    using MotionSpecification = motion_specification_interfaces::action::MotionSpecification;
+    using GoalHandleMotionSpecification = rclcpp_action::ServerGoalHandle<MotionSpecification>;
+
+    MOTION_SPECIFICATION_ACTION_PUBLIC
+    explicit MotionSpecificationActionServer(const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
+    ~MotionSpecificationActionServer();
+
+  private:
+    rclcpp_action::Server<MotionSpecification>::SharedPtr action_server_;
+    std::atomic<bool> control_loop_active_;
+    std::thread control_loop_thread_;
+    volatile sig_atomic_t flag;
+    std::string package_share_directory;
+    bool goal_accepted_and_executing;
+    bool configuration_file_read;
+
+    // Control loop related: kinova communicatoin, KDL data structure handling
+    struct sigaction sa;
+    // initialise data by reading from the config file
+    double TIMEOUT_DURATION_TASK; // in seconds
+    double WRENCH_THRESHOLD_LINEAR;
+    double WRENCH_THRESHOLD_ROTATIONAL;
+    double JOINT_TORQUE_THRESHOLD;
+    double DESIRED_TIME_STEP;
+    double STIFFNESS_GAIN_X;
+    double STIFFNESS_GAIN_Y;
+    double STIFFNESS_GAIN_Z;
+    double DAMPING_GAIN_X;
+    double DAMPING_GAIN_Y;
+    double DAMPING_GAIN_Z;
+    double STIFFNESS_GAIN_ROLL;
+    double STIFFNESS_GAIN_PITCH;
+    double STIFFNESS_GAIN_YAW;
+    double STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
+    int MOTION_SPECIFICATION_READ;
+    int SAVE_LOG_EVERY_NTH_STEP;
+    std::string arm_name;
+
+    int pre_condition_constraint_count;
+    int per_condition_constraint_count;
+    int post_condition_constraint_count;
+    int prevail_condition_constraint_count;
+    int motion_specification_read;
+    int frequency_of_checking_motion_specification; // in Hz (every 0.1 seconds)
+    
+    std::vector<float> gravitational_acceleration; // Example values
+    
+    // urdf and KDL
+    KDL::Tree kinematic_tree;
+    KDL::Chain chain_urdf;
+    
+    unsigned int NUM_LINKS;
+    
+    /* KDL solvers */
+    std::shared_ptr<KDL::ChainJntToJacDotSolver> jacobDotSolver;
+    std::shared_ptr<KDL::ChainFkSolverPos_recursive> fkSolverPos;
+    std::shared_ptr<KDL::ChainFkSolverVel_recursive> fkSolverVel;
+    std::shared_ptr<KDL::ChainIkSolverVel_pinv> ikSolverAcc;
+    std::shared_ptr<KDL::ChainIdSolver_RNE> idSolver;
+    
+    // Declarations of the transformation-related variables
+    const KDL::Vector BL_x_axis_wrt_GF;
+    const KDL::Vector BL_y_axis_wrt_GF;
+    const KDL::Vector BL_z_axis_wrt_GF;
+    const KDL::Vector BL_position_wrt_GF;
+    
+    const KDL::Rotation BL_wrt_GF;
+    const KDL::Frame BL_wrt_GF_frame;
+    
+    // end effector Pose
+    KDL::Frame measured_endEffPose_BL_arm;
+    KDL::Frame measured_endEffPose_GF_arm;
+    KDL::FrameVel measured_endEffTwist_BL_arm;
+    KDL::FrameVel measured_endEffTwist_GF_arm;
+    
+    // Joint variables
+    KDL::JntArray jnt_positions;
+    KDL::JntArray jnt_positions_setpoint;
+    KDL::JntArray jnt_velocities; // has only joint velocities of all joints
+    KDL::JntArray torques_gravity_compensation;
+    KDL::JntArray jnt_torques_read; // to read from the robot
+    
+    KDL::JntArray jnt_torques_cmd; // to send to the robot
+    KDL::JntArrayVel jnt_velocity; // has both joint position and joint velocity of all joints
+    
+    KDL::JntArray jnt_accelerations;
+    KDL::JntArray zero_jnt_velocities;
+    
+    KDL::Wrenches linkWrenches_GF;
+    KDL::Wrenches linkWrenches_EE;
+    KDL::Wrenches linkWrenches_zero;
+    
+    // cartesian acceleration
+    KDL::Twist xdd;
+    KDL::Twist xdd_minus_jd_qd;
+    KDL::Twist jd_qd;
+    double time_period_of_complete_controller_cycle_data;
+    double jnt_angle_diff;
+    double stiffness_lin_x_axis_data;
+    double stiffness_lin_y_axis_data;
+    double stiffness_lin_z_axis_data;
+
+    double damping_lin_x_axis_data;
+    double damping_lin_y_axis_data;
+    double damping_lin_z_axis_data;
+
+    double stiffness_roll_axis_data;
+    double stiffness_pitch_axis_data;
+    double stiffness_yaw_axis_data;
+    double stiffness_joint_impedance_ctrl;
+
+    double measured_lin_pos_x_axis_data;
+    double measured_lin_pos_y_axis_data;
+    double measured_lin_pos_z_axis_data;
+
+    bool switch_to_joint_impendance_control;
+    double measured_quat_GF[4];
+
+    double measured_lin_vel_x_axis_data;
+    double measured_lin_vel_y_axis_data;
+    double measured_lin_vel_z_axis_data;
+
+    double lin_pos_sp_x_axis_data;
+    double lin_pos_sp_y_axis_data;
+    double lin_pos_sp_z_axis_data;
+
+    double lin_vel_sp_x_axis_data;
+    double lin_vel_sp_y_axis_data;
+    double lin_vel_sp_z_axis_data;
+
+    double stiffness_term_lin_x_axis_data;
+    double stiffness_term_lin_y_axis_data;
+    double stiffness_term_lin_z_axis_data;
+
+    double damping_term_x_axis_data;
+    double damping_term_y_axis_data;
+    double damping_term_z_axis_data;
+
+    double lin_pos_error_stiffness_x_axis_data;
+    double lin_pos_error_stiffness_y_axis_data;
+    double lin_pos_error_stiffness_z_axis_data;
+
+    double lin_vel_error_damping_x_axis_data;
+    double lin_vel_error_damping_y_axis_data;
+    double lin_vel_error_damping_z_axis_data;
+
+    double stiffness_damping_terms_summation_x_axis_data;
+    double stiffness_damping_terms_summation_y_axis_data;
+    double stiffness_damping_terms_summation_z_axis_data;
+
+    double apply_ee_force_x_axis_data;
+    double apply_ee_force_y_axis_data;
+    double apply_ee_force_z_axis_data;
+
+    double apply_ee_torque_x_axis_data;
+    double apply_ee_torque_y_axis_data;
+    double apply_ee_torque_z_axis_data;
+
+    double measured_roll_data;
+    double measured_pitch_data;
+    double measured_yaw_data;
+
+    double force_to_apply_x_axis;
+    double force_to_apply_y_axis;
+    double force_to_apply_z_axis;
+
+    KDL::Vector angle_axis_diff_GF_arm;
+    KDL::Frame desired_endEffPose_GF_arm;
+    std::array<double, 4> desired_quat_GF;
+
+
+    // initialise multi-dimensional array to store data
+    std::vector<std::vector<double>> data_array_log;
+    int iterationCount;
+    
+    // logging
+    // std::string log_file = "log_files/kinova_arm_ctrl_log_file" + getTimestamp() + ".csv";
+    // std::ofstream data_stream_log(log_file);
+
+    // if (!data_stream_log.is_open())
+    // {
+    //     std::cerr << "Failed to open file: " << log_file << std::endl;
+    //     return 0;
+    // }
+    // adding header
+    // data_stream_log << "time_elapsed,time_period_of_complete_controller_cycle_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,measured_orient_quat_x_data,measured_orient_quat_y_data,measured_orient_quat_z_data,measured_orient_quat_w_data,measured_lin_vel_x_axis_data,measured_lin_vel_y_axis_data,measured_lin_vel_z_axis_data,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data,apply_ee_torque_x_axis_data,apply_ee_torque_y_axis_data,apply_ee_torque_z_axis_data,jnt_torque_command_0,jnt_torque_command_1,jnt_torque_command_2,jnt_torque_command_3,jnt_torque_command_4,jnt_torque_command_5,jnt_torque_command_6\n";
+
+
+    // joint torques that will be calculated before setting the control mode
+    std::vector<double> rne_output_jnt_torques_vector_to_set_control_mode;
+
+    kinova_mediator kinova_arm; // 192.168.1.10 (KINOVA_GEN3_1) // 192.168.1.12 (KINOVA_GEN3_2)
+
+    // set robots to control
+    robot_controlled robots_to_control = robot_controlled::KINOVA_GEN3_2_RIGHT;
+    std::string config_file_path;
+    YAML::Node config_file_object;
+    YAML::Node motion_specification_params_object;
+    bool motion_completed;
+
+    void read_config_file(const YAML::Node &config_file_object);
+    void read_motion_specification(const YAML::Node &motion_specification_params);
+    // void handle_signal(int sig);
+
+    void kinova_feedback(kinova_mediator &kinova_arm_mediator,
+                         KDL::JntArray &jnt_positions,
+                         KDL::JntArray &jnt_velocities,
+                         KDL::JntArray &jnt_torques);
+
+    void get_end_effector_pose_and_twist(KDL::JntArrayVel &jnt_velocity,
+                                         const KDL::JntArray &jnt_positions,
+                                         const KDL::JntArray &jnt_velocities,
+                                         KDL::Frame &measured_endEffPose_BL,
+                                         KDL::FrameVel &measured_endEffTwist_BL,
+                                         KDL::Frame &measured_endEffPose_GF,
+                                         KDL::FrameVel &measured_endEffTwist_GF,
+                                         std::shared_ptr<KDL::ChainFkSolverPos_recursive> &fkSolverPos,
+                                         std::shared_ptr<KDL::ChainFkSolverVel_recursive> &fkSolverVel,
+                                         const KDL::Frame &BL_wrt_GF_frame);
+
+    void calculate_joint_torques_RNEA(
+        std::shared_ptr<KDL::ChainJntToJacDotSolver> &jacobDotSolver,
+        std::shared_ptr<KDL::ChainIkSolverVel_pinv> &ikSolverAcc,
+        std::shared_ptr<KDL::ChainIdSolver_RNE> &idSolver,
+        KDL::JntArrayVel &jnt_velocity,
+        KDL::Twist &jd_qd,
+        KDL::Twist &xdd,
+        KDL::Twist &xdd_minus_jd_qd,
+        KDL::JntArray &jnt_accelerations,
+        KDL::JntArray &jnt_positions,
+        KDL::JntArray &jnt_velocities,
+        KDL::Wrenches &linkWrenches_EE,
+        KDL::JntArray &jnt_torques);
+
+    template <size_t N>
+    void appendDataToFile_dynamic_size(std::ofstream &file, const std::vector<std::array<double, N>> &data);
+
+    std::string getTimestamp();
+
+    void check_3D_vector_constraint_satisfaction(
+        const double &measured_x_axis_data,
+        const double &measured_y_axis_data,
+        const double &measured_z_axis_data,
+        bool &constraint_satisfied,
+        const int &constraint_idx,
+        const YAML::Node &motion_specification_params,
+        const std::string &arm_name,
+        const condition_type &condition_type_value);
+
+    void check_1D_vector_constraint_satisfaction(
+        const double &measured_data,
+        bool &constraint_satisfied,
+        const int &constraint_idx,
+        const YAML::Node &motion_specification_params,
+        const std::string &arm_name,
+        const condition_type &condition_type_value);
+
+    void check_pre_or_post_or_prevail_condition_satisfaction(
+        const double &measured_lin_pos_x_axis_data,
+        const double &measured_lin_pos_y_axis_data,
+        const double &measured_lin_pos_z_axis_data,
+        const double &measured_roll_data,
+        const double &measured_pitch_data,
+        const double &measured_yaw_data,
+        const double &measured_lin_vel_x_axis_data,
+        const double &measured_lin_vel_y_axis_data,
+        const double &measured_lin_vel_z_axis_data,
+        KDL::Wrench &linkWrenches_EE,
+        const int &condition_constraint_count,
+        std::string &constraint_type_str,
+        const std::string &arm_name,
+        bool &condition_satisfied,
+        const YAML::Node &motion_specification_params,
+        const condition_type &condition_type_value);
+
+    void get_setpoints_from_motion_specification(
+        double &lin_pos_sp_x_axis_data,
+        double &lin_pos_sp_y_axis_data,
+        double &lin_pos_sp_z_axis_data,
+        double &lin_vel_sp_x_axis_data,
+        double &lin_vel_sp_y_axis_data,
+        double &lin_vel_sp_z_axis_data,
+        double &force_to_apply_x_axis,
+        double &force_to_apply_y_axis,
+        double &force_to_apply_z_axis,
+        const int &per_condition_constraint_count,
+        std::array<double, 4>& desired_quat_GF,
+        const YAML::Node &motion_specification_params,
+        const std::string &arm_name);
+
+    void get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
+        const double &stiffness_lin_x_axis_data,
+        const double &stiffness_lin_y_axis_data,
+        const double &stiffness_lin_z_axis_data,
+        const double &damping_lin_x_axis_data,
+        const double &damping_lin_y_axis_data,
+        const double &damping_lin_z_axis_data,
+        const double &stiffness_roll_axis_data,
+        const double &stiffness_pitch_axis_data,
+        const double &stiffness_yaw_axis_data,
+        const double &measured_lin_pos_x_axis_data,
+        const double &measured_lin_pos_y_axis_data,
+        const double &measured_lin_pos_z_axis_data,
+        const double &measured_lin_vel_x_axis_data,
+        const double &measured_lin_vel_y_axis_data,
+        const double &measured_lin_vel_z_axis_data,
+        const double &lin_pos_sp_x_axis_data,
+        const double &lin_pos_sp_y_axis_data,
+        const double &lin_pos_sp_z_axis_data,
+        const double &lin_vel_sp_x_axis_data,
+        const double &lin_vel_sp_y_axis_data,
+        const double &lin_vel_sp_z_axis_data,
+        const double &force_to_apply_x_axis,
+        const double &force_to_apply_y_axis,
+        const double &force_to_apply_z_axis,
+        const std::array<double, 4>& desired_quat_GF,
+        double &apply_ee_force_x_axis_data,
+        double &apply_ee_force_y_axis_data,
+        double &apply_ee_force_z_axis_data,
+        double &apply_ee_torque_x_axis_data,
+        double &apply_ee_torque_y_axis_data,
+        double &apply_ee_torque_z_axis_data,
+        KDL::Frame &desired_endEffPose_GF_arm,
+        const KDL::Frame &measured_endEffPose_GF_arm,
+        const int &per_condition_constraint_count,
+        KDL::Vector &angle_axis_diff_GF_arm,
+        const YAML::Node &motion_specification_params,
+        const std::string &arm_name);
+
+    // Assuming constraint_type, operator_type, and condition_type are enums
+    const std::unordered_map<std::string, constraint_type> &getConstraintTypeMap();
+    const std::unordered_map<std::string, operator_type> &getOperatorTypeMap();
+    const std::unordered_map<std::string, condition_type> &getConditionTypeMap();
+
+    // Control loop related: end
+
+    void control_loop();
+    void execute(const std::shared_ptr<GoalHandleMotionSpecification> goal_handle);
+
+    // Callbacks for the action server
+    rclcpp_action::GoalResponse handle_goal(
+        const rclcpp_action::GoalUUID &uuid,
+        std::shared_ptr<const MotionSpecification::Goal> goal);
+
+    rclcpp_action::CancelResponse handle_cancel(
+        const std::shared_ptr<GoalHandleMotionSpecification> goal_handle);
+
+    void handle_accepted(
+        const std::shared_ptr<GoalHandleMotionSpecification> goal_handle);
+  };
+} // namespace motion_specification_action
+
+#endif // MOTION_SPECIFICATION_ACTION_SERVER_HPP
+
+// to solve issue with building with header file,
+// refer: https://github.com/ros/ros_tutorials/blob/54c2b3c70884f957453419b91c58f89d66b4563e/turtlesim/include/turtlesim/turtle.hpp (remove visibility_control.h ?)

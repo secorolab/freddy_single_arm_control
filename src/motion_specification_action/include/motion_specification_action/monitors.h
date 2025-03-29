@@ -19,6 +19,13 @@ extern "C"
    */
 
   /**
+   * @brief get the current time in sec with micro seconds precision
+   *
+   * @param current_time: current time
+   */
+  void get_current_time_sec(double *current_time);
+
+  /**
    * @brief monitor if value_to_compare is less than target_value
    *
    * @param value_to_compare: value to compare
