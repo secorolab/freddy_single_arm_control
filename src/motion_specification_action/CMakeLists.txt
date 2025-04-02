@@ -19,6 +19,8 @@ find_package(orocos_kdl REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(kinova_mediator REQUIRED)
 find_package(ament_index_cpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 # Define Kinova API include path
 set(KINOVA_API_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../kinova_mediator/kinova_api)
@@ -69,6 +71,7 @@ target_include_directories(action_server PRIVATE
 
 target_compile_definitions(action_server PRIVATE "MOTION_SPECIFICATION_ACTION_BUILDING_DLL")
 
+# ament_target_dependencies() works best with ament-based dependencies. For system libraries, target-link_libraries() is preferred.
 ament_target_dependencies(action_server
   "motion_specification_interfaces"
   "rclcpp"
@@ -80,7 +83,11 @@ ament_target_dependencies(action_server
   "yaml-cpp"
   "kinova_mediator"
   "ament_index_cpp"
+  "sensor_msgs"
+  "geometry_msgs"
 )
+
+target_link_libraries(action_server yaml-cpp)
 
 rclcpp_components_register_node(action_server PLUGIN "motion_specification_action::MotionSpecificationActionServer" EXECUTABLE motion_specification_action_server)
 
@@ -94,6 +101,12 @@ install(TARGETS action_server
 install(
   DIRECTORY config/
   DESTINATION share/${PROJECT_NAME}/config
+)
+
+# Install the urdf folder (with the robot URDF files)
+install(
+  DIRECTORY urdf/
+  DESTINATION share/${PROJECT_NAME}/urdf
 )
 
 # =============================
