@@ -1,4 +1,4 @@
-#include "controllers/control_blocks.h"
+#include "motion_specification_action/control_blocks.h"
 
 void summation2(const double *value1, const double *value2, double *result)
 {

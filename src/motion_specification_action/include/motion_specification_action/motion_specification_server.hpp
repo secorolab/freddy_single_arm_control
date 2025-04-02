@@ -39,8 +39,8 @@
 #include <kdl_parser/kdl_parser.hpp>
 
 #include "motion_specification_action/visibility_control.h"
-#include "motion_specification_action/control_blocks.h"
-#include "motion_specification_action/monitors.h"
+#include "control_blocks.h"
+#include "monitors.h"
 
 namespace motion_specification_action
 {

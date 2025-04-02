@@ -55,7 +55,10 @@ install(TARGETS action_client
 # =============================
 # Action Server Library
 # =============================
-add_library(action_server SHARED src/motion_specification_server.cpp)
+add_library(action_server SHARED 
+  src/motion_specification_server.cpp
+  src/monitors.c
+  src/control_blocks.c)
 
 target_include_directories(action_server PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

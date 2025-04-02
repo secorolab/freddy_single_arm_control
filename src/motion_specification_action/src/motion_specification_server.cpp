@@ -1088,7 +1088,7 @@ namespace motion_specification_action
       if (time_since_last_publish.count() > state_publish_time_step)
       {
         publish_joint_states(jnt_positions);
-        publish_ee_pose(measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data, measured_quat_GF);
+        // publish_ee_pose(measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data, measured_quat_GF);
       };
 
       if (goal_accepted_and_executing)
@@ -1172,7 +1172,6 @@ namespace motion_specification_action
             if (!switch_to_joint_impendance_control)
             {
               std::cout << "Post condition satisfied. Switching to impedance control mode." << std::endl;
-              jnt_positions_setpoint = jnt_positions;
               switch_to_joint_impendance_control = true;
             }
           }
@@ -1245,6 +1244,7 @@ namespace motion_specification_action
 
       if (switch_to_joint_impendance_control || !goal_accepted_and_executing)
       {
+        jnt_positions_setpoint = jnt_positions;
         calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                      jnt_velocity, jd_qd, xdd,
                                      xdd_minus_jd_qd, jnt_accelerations,
