@@ -103,6 +103,7 @@ namespace motion_specification_action
     std::atomic<bool> motion_unsuccessful;                // flag set when prevail_condition is not met
     std::atomic<bool> switch_to_joint_impendance_control; // when control loop is running and no active ms is specified after the first one onwards
     bool configuration_file_read;
+    bool jnt_impedance_setpoint_is_set;
     std::atomic<bool> pre_condition_satisfied;
     std::atomic<bool> post_condition_satisfied;
     std::atomic<bool> prevail_condition_satisfied;
@@ -110,11 +111,9 @@ namespace motion_specification_action
     // Control loop related: kinova communicatoin, KDL data structure handling
     struct sigaction sa;
     // initialise data by reading from the config file
-    double TIMEOUT_DURATION_TASK; // in seconds
     double WRENCH_THRESHOLD_LINEAR;
     double WRENCH_THRESHOLD_ROTATIONAL;
     double JOINT_TORQUE_THRESHOLD;
-    double DESIRED_TIME_STEP;
     double STIFFNESS_GAIN_X;
     double STIFFNESS_GAIN_Y;
     double STIFFNESS_GAIN_Z;
@@ -126,7 +125,6 @@ namespace motion_specification_action
     double STIFFNESS_GAIN_YAW;
     double STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
     // int MOTION_SPECIFICATION_READ;
-    int SAVE_LOG_EVERY_NTH_STEP;
     std::string arm_name;
 
     int pre_condition_constraint_count;
@@ -269,18 +267,6 @@ namespace motion_specification_action
     // initialise multi-dimensional array to store data
     std::vector<std::vector<double>> data_array_log;
     int iterationCount;
-
-    // logging
-    // std::string log_file = "log_files/kinova_arm_ctrl_log_file" + getTimestamp() + ".csv";
-    // std::ofstream data_stream_log(log_file);
-
-    // if (!data_stream_log.is_open())
-    // {
-    //     std::cerr << "Failed to open file: " << log_file << std::endl;
-    //     return 0;
-    // }
-    // adding header
-    // data_stream_log << "time_elapsed,time_period_of_complete_controller_cycle_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,measured_orient_quat_x_data,measured_orient_quat_y_data,measured_orient_quat_z_data,measured_orient_quat_w_data,measured_lin_vel_x_axis_data,measured_lin_vel_y_axis_data,measured_lin_vel_z_axis_data,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data,apply_ee_torque_x_axis_data,apply_ee_torque_y_axis_data,apply_ee_torque_z_axis_data,jnt_torque_command_0,jnt_torque_command_1,jnt_torque_command_2,jnt_torque_command_3,jnt_torque_command_4,jnt_torque_command_5,jnt_torque_command_6\n";
 
     // joint torques that will be calculated before setting the control mode
     std::vector<double> rne_output_jnt_torques_vector_to_set_control_mode;
@@ -467,6 +453,3 @@ namespace motion_specification_action
 } // namespace motion_specification_action
 
 #endif // MOTION_SPECIFICATION_ACTION_SERVER_HPP
-
-// to solve issue with building with header file,
-// refer: https://github.com/ros/ros_tutorials/blob/54c2b3c70884f957453419b91c58f89d66b4563e/turtlesim/include/turtlesim/turtle.hpp (remove visibility_control.h ?)

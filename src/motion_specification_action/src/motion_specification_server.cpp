@@ -71,6 +71,7 @@ namespace motion_specification_action
         pre_condition_satisfied(false),
         post_condition_satisfied(false),
         prevail_condition_satisfied(false),
+        jnt_impedance_setpoint_is_set(false),
         state_publish_time_step(0.1),
         rne_output_jnt_torques_vector_to_set_control_mode(kinova_constants::NUMBER_OF_JOINTS, 0.0),
         arm_name("kinova_gen3_2_right")
@@ -215,6 +216,7 @@ namespace motion_specification_action
     flag = 0;
     motion_unsuccessful = false;
     switch_to_joint_impendance_control = false;
+    jnt_impedance_setpoint_is_set = false;
     pre_condition_satisfied = false;
     post_condition_satisfied = false;
     prevail_condition_satisfied = false;
@@ -424,7 +426,8 @@ namespace motion_specification_action
         break;
       }
       auto operator_value = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"][j];
-      if (!operator_value.IsNull())
+      std::string op_str = operator_value.as<std::string>("");
+      if (!(op_str == "None"))
       {
         operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"][j].as<std::string>();
         auto operator_iterator = operator_type_map.find(operator_type_str);
@@ -472,7 +475,7 @@ namespace motion_specification_action
         }
         else
         {
-          std::cout << "[check_3D_vector_constraint_satisfaction] Operator type not found" << std::endl;
+          std::cout << "[check_3D_vector_constraint_satisfaction] Operator type not found: " << operator_type_str << std::endl;
           flag = 1; // stop the execution
         }
       }
@@ -512,7 +515,8 @@ namespace motion_specification_action
     }
 
     auto operator_value = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"];
-    if (!operator_value.IsNull())
+    std::string op_str = operator_value.as<std::string>("");
+    if (!(op_str == "None"))
     {
       operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"].as<std::string>();
       auto operator_iterator = operator_type_map.find(operator_type_str);
@@ -742,7 +746,8 @@ namespace motion_specification_action
           case POSITION_XYZ:
             for (int k = 0; k < 3; k++)
             {
-              if (!constraint_value_list[k].IsNull())
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
               {
                 if (k == 0)
                 {
@@ -763,7 +768,8 @@ namespace motion_specification_action
           case VELOCITY_XYZ:
             for (int k = 0; k < 3; k++)
             {
-              if (!constraint_value_list[k].IsNull())
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
               {
                 if (k == 0)
                 {
@@ -784,7 +790,8 @@ namespace motion_specification_action
           case FORCE_XYZ:
             for (int k = 0; k < 3; k++)
             {
-              if (!constraint_value_list[k].IsNull())
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
               {
                 if (k == 0)
                 {
@@ -805,7 +812,9 @@ namespace motion_specification_action
           case ORIENTATION_QUATERNION:
             for (int k = 0; k < 4; k++)
             {
-              if (!constraint_value_list[k].IsNull())
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
+
               {
                 desired_quat_GF[k] = constraint_value_list[k].as<double>();
               }
@@ -884,7 +893,8 @@ namespace motion_specification_action
           case POSITION_XYZ:
             for (int k = 0; k < 3; k++)
             {
-              if (!constraint_value_list[k].IsNull())
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
               {
                 if (k == 0)
                 {
@@ -905,7 +915,8 @@ namespace motion_specification_action
           case VELOCITY_XYZ:
             for (int k = 0; k < 3; k++)
             {
-              if (!constraint_value_list[k].IsNull())
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
               {
                 if (k == 0)
                 {
@@ -926,7 +937,8 @@ namespace motion_specification_action
           case FORCE_XYZ:
             for (int k = 0; k < 3; k++)
             {
-              if (!constraint_value_list[k].IsNull())
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
               {
                 if (k == 0)
                 {
@@ -1030,12 +1042,22 @@ namespace motion_specification_action
       STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL = config_file_object[arm_name]["STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL"].as<double>();
 
       gravitational_acceleration = config_file_object[arm_name]["gravitational_acceleration"].as<std::vector<float>>();
-      TIMEOUT_DURATION_TASK = config_file_object[arm_name]["TIMEOUT_DURATION_TASK"].as<double>(); // seconds
       WRENCH_THRESHOLD_LINEAR = config_file_object[arm_name]["WRENCH_THRESHOLD_LINEAR"].as<double>();
       WRENCH_THRESHOLD_ROTATIONAL = config_file_object[arm_name]["WRENCH_THRESHOLD_ROTATIONAL"].as<double>();
       JOINT_TORQUE_THRESHOLD = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD"].as<double>();
-      DESIRED_TIME_STEP = config_file_object[arm_name]["DESIRED_TIME_STEP"].as<double>();
-      SAVE_LOG_EVERY_NTH_STEP = config_file_object[arm_name]["SAVE_LOG_EVERY_NTH_STEP"].as<int>();
+
+      stiffness_lin_x_axis_data = STIFFNESS_GAIN_X;
+      stiffness_lin_y_axis_data = STIFFNESS_GAIN_Y;
+      stiffness_lin_z_axis_data = STIFFNESS_GAIN_Z;
+
+      damping_lin_x_axis_data = DAMPING_GAIN_X;
+      damping_lin_y_axis_data = DAMPING_GAIN_Y;
+      damping_lin_z_axis_data = DAMPING_GAIN_Z;
+
+      stiffness_roll_axis_data = STIFFNESS_GAIN_ROLL;
+      stiffness_pitch_axis_data = STIFFNESS_GAIN_PITCH;
+      stiffness_yaw_axis_data = STIFFNESS_GAIN_YAW;
+      stiffness_joint_impedance_ctrl = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
 
       BL_x_axis_wrt_GF_vector = config_file_object[arm_name]["BL_x_axis_wrt_GF"].as<std::vector<double>>();
       BL_y_axis_wrt_GF_vector = config_file_object[arm_name]["BL_y_axis_wrt_GF"].as<std::vector<double>>();
@@ -1062,14 +1084,37 @@ namespace motion_specification_action
 
     auto previous_time = std::chrono::high_resolution_clock::now();
 
-    while (rclcpp::ok() && control_loop_active_ && flag == 0)
+    if (rclcpp::ok() && control_loop_active_ && flag == 0)
     {
-      
       kinova_feedback(kinova_arm_mediator, jnt_positions, jnt_velocities,
         jnt_torques_read);
         
+      get_end_effector_pose_and_twist(
+          jnt_velocity, jnt_positions, jnt_velocities,
+          measured_endEffPose_BL_arm, measured_endEffTwist_BL_arm,
+          measured_endEffPose_GF_arm, measured_endEffTwist_GF_arm,
+          fkSolverPos, fkSolverVel, BL_wrt_GF_frame);
 
+      calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
+                                    jnt_velocity, jd_qd, xdd,
+                                    xdd_minus_jd_qd, jnt_accelerations,
+                                    jnt_positions, jnt_velocities,
+                                    linkWrenches_zero, jnt_torques_cmd);
 
+      // convert JntArray to double array
+      for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
+      {
+          rne_output_jnt_torques_vector_to_set_control_mode[i] =
+              jnt_torques_cmd(i);
+      }
+      kinova_arm_mediator.set_control_mode(control_mode::TORQUE, rne_output_jnt_torques_vector_to_set_control_mode.data());      
+    }
+
+    while (rclcpp::ok() && control_loop_active_ && flag == 0)
+    {
+      kinova_feedback(kinova_arm_mediator, jnt_positions, jnt_velocities,
+        jnt_torques_read);
+        
       get_end_effector_pose_and_twist(
           jnt_velocity, jnt_positions, jnt_velocities,
           measured_endEffPose_BL_arm, measured_endEffTwist_BL_arm,
@@ -1120,11 +1165,6 @@ namespace motion_specification_action
           {
             std::cout << "Pre condition satisfied. Now running controller to achieve per-condition until post-condition is satisfied." << std::endl;
           }
-        }
-        else{
-          std::cout << "Pre condition not satisfied. Stopping execution. Switching to impedance control mode" << std::endl;
-          switch_to_joint_impendance_control = true;
-          goal_accepted_and_executing = false;
         }
 
         if (pre_condition_satisfied)
@@ -1200,8 +1240,6 @@ namespace motion_specification_action
                 motion_specification_params_object,
                 arm_name);
 
-            std::cout << "----------------------------------------------------getting force and torque from controller" << std::endl;
-
             get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
                 stiffness_lin_x_axis_data,
                 stiffness_lin_y_axis_data,
@@ -1246,7 +1284,13 @@ namespace motion_specification_action
 
       if (switch_to_joint_impendance_control || !goal_accepted_and_executing)
       {
-        jnt_positions_setpoint = jnt_positions;
+        if (!jnt_impedance_setpoint_is_set)
+        {
+          std::cout << "In joint impedance mode" << std::endl;
+          jnt_positions_setpoint = jnt_positions;
+          jnt_impedance_setpoint_is_set = true;
+        }
+
         calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                      jnt_velocity, jd_qd, xdd,
                                      xdd_minus_jd_qd, jnt_accelerations,
@@ -1319,15 +1363,28 @@ namespace motion_specification_action
           jnt_torques_cmd(i) = std::max(-JOINT_TORQUE_THRESHOLD, jnt_torques_cmd(i));
         }
       }
+
       kinova_arm_mediator.set_joint_torques(jnt_torques_cmd);
+      apply_ee_force_x_axis_data = 0.0;
+      apply_ee_force_y_axis_data = 0.0;
+      apply_ee_force_z_axis_data = 0.0;
+      apply_ee_torque_x_axis_data = 0.0;
+      apply_ee_torque_y_axis_data = 0.0;
+      apply_ee_torque_z_axis_data = 0.0;
 
       // Example: Check system state
       if (!control_loop_active_)
       {
         break; // Exit the loop gracefully if the node is shutting down
       }
+      if (flag==1)
+      {
+        std::cout << "Error!! exiting the control loop." << std::endl;
+      }
       loop_rate.sleep(); // Maintain the loop at 1kHz
     }
+
+    kinova_arm_mediator.set_control_mode(control_mode::POSITION, nullptr);
   }
 
   void MotionSpecificationActionServer::execute(const std::shared_ptr<GoalHandleMotionSpecification> goal_handle)
@@ -1371,11 +1428,9 @@ namespace motion_specification_action
     // print string message on goal
     while (goal_accepted_and_executing && rclcpp::ok())
     {
-      RCLCPP_INFO(this->get_logger(), "Goal: %s", goal->motion_specification.c_str());
 
       tcp_wrt_GF = {measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data};
       goal_handle->publish_feedback(feedback);
-      RCLCPP_INFO(this->get_logger(), "Publish feedback");
 
       if (goal_handle->is_canceling() || motion_unsuccessful)
       {
