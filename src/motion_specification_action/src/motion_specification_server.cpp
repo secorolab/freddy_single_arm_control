@@ -144,6 +144,8 @@ namespace motion_specification_action
         handle_accepted);
 
     joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
+    pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("ee_pose", 10);
+
     joint_names_ = {"Actuator1", "Actuator2", "Actuator3", "Actuator4", "Actuator5", "Actuator6", "Actuator7"};
 
     // Start the control loop in a separate thread
