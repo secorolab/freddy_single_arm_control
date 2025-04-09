@@ -23,7 +23,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
 # Define Kinova API include path
-set(KINOVA_API_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../kinova_mediator/kinova_api)
+set(KINOVA_API_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../kinova_mediator/kinova_api)
 
 # =============================
 # Action Client Library
