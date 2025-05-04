@@ -13,6 +13,10 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <tf2_kdl/tf2_kdl.hpp>
 
 #include <Eigen/Core>
 #include <chrono>
@@ -93,6 +97,9 @@ namespace motion_specification_action
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_publisher_;
     std::vector<std::string> joint_names_;
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    geometry_msgs::msg::TransformStamped transform_stamped;
 
     std::thread control_loop_thread_;
     // Atomic flag to control loop execution, used to stop loop when destructor is called. 
@@ -127,6 +134,7 @@ namespace motion_specification_action
     // int MOTION_SPECIFICATION_READ;
     std::string arm_name;
 
+    std::string frame_name;
     int pre_condition_constraint_count;
     int per_condition_constraint_count;
     int post_condition_constraint_count;
@@ -150,24 +158,13 @@ namespace motion_specification_action
     std::shared_ptr<KDL::ChainIdSolver_RNE> idSolver;
 
     // Declarations of the transformation-related variables
-    std::vector<double> BL_x_axis_wrt_GF_vector;
-    std::vector<double> BL_y_axis_wrt_GF_vector;
-    std::vector<double> BL_z_axis_wrt_GF_vector;
-    std::vector<double> BL_position_wrt_GF_vector;
-
-    KDL::Vector BL_x_axis_wrt_GF;
-    KDL::Vector BL_y_axis_wrt_GF;
-    KDL::Vector BL_z_axis_wrt_GF;
-    KDL::Vector BL_position_wrt_GF;
-
-    KDL::Rotation BL_wrt_GF;
-    KDL::Frame BL_wrt_GF_frame;
+    KDL::Frame BL_wrt_FrameName_frame;
 
     // end effector Pose
     KDL::Frame measured_endEffPose_BL_arm;
-    KDL::Frame measured_endEffPose_GF_arm;
+    KDL::Frame measured_endEffPose_FrameName_arm;
     KDL::FrameVel measured_endEffTwist_BL_arm;
-    KDL::FrameVel measured_endEffTwist_GF_arm;
+    KDL::FrameVel measured_endEffTwist_FrameName_arm;
 
     // Joint variables
     KDL::JntArray jnt_positions;
@@ -182,7 +179,7 @@ namespace motion_specification_action
     KDL::JntArray jnt_accelerations;
     KDL::JntArray zero_jnt_velocities;
 
-    KDL::Wrenches linkWrenches_GF;
+    KDL::Wrenches linkWrenches_FrameName;
     KDL::Wrenches linkWrenches_EE;
     KDL::Wrenches linkWrenches_zero;
 
@@ -210,7 +207,7 @@ namespace motion_specification_action
     double measured_lin_pos_y_axis_data;
     double measured_lin_pos_z_axis_data;
 
-    std::array<double, 4> measured_quat_GF;
+    std::array<double, 4> measured_quat_FrameName;
 
     double measured_lin_vel_x_axis_data;
     double measured_lin_vel_y_axis_data;
@@ -260,9 +257,9 @@ namespace motion_specification_action
     double force_to_apply_y_axis;
     double force_to_apply_z_axis;
 
-    KDL::Vector angle_axis_diff_GF_arm;
-    KDL::Frame desired_endEffPose_GF_arm;
-    std::array<double, 4> desired_quat_GF;
+    KDL::Vector angle_axis_diff_FrameName_arm;
+    KDL::Frame desired_endEffPose_FrameName_arm;
+    std::array<double, 4> desired_quat_FrameName;
 
     // initialise multi-dimensional array to store data
     std::vector<std::vector<double>> data_array_log;
@@ -284,7 +281,8 @@ namespace motion_specification_action
     YAML::Node motion_specification_params_object;
 
     void publish_joint_states(KDL::JntArray& jnt_positions);
-    void publish_ee_pose(const double &measured_lin_pos_x_axis_data, const double &measured_lin_pos_y_axis_data, const double &measured_lin_pos_z_axis_data, const std::array<double, 4> &measured_quat_GF);
+    void lookup_transformation(const std::string &target_frame, const std::string &source_frame, geometry_msgs::msg::TransformStamped &transform);
+    void publish_ee_pose(const double &measured_lin_pos_x_axis_data, const double &measured_lin_pos_y_axis_data, const double &measured_lin_pos_z_axis_data, const std::array<double, 4> &measured_quat_FrameName, const std::string &frame_name);
     void read_config_file(const YAML::Node &config_file_object);
     void parse_urdf_file(const std::string &urdf_file_path, KDL::Tree &kinematic_tree, KDL::Chain &chain_urdf, unsigned int &NUM_LINKS);
     void reset_flags();
@@ -314,11 +312,11 @@ namespace motion_specification_action
                                          const KDL::JntArray &jnt_velocities,
                                          KDL::Frame &measured_endEffPose_BL,
                                          KDL::FrameVel &measured_endEffTwist_BL,
-                                         KDL::Frame &measured_endEffPose_GF,
-                                         KDL::FrameVel &measured_endEffTwist_GF,
+                                         KDL::Frame &measured_endEffPose_FrameName,
+                                         KDL::FrameVel &measured_endEffTwist_FrameName,
                                          std::shared_ptr<KDL::ChainFkSolverPos_recursive> &fkSolverPos,
                                          std::shared_ptr<KDL::ChainFkSolverVel_recursive> &fkSolverVel,
-                                         const KDL::Frame &BL_wrt_GF_frame);
+                                         const KDL::Frame &BL_wrt_FrameName_frame);
 
     void calculate_joint_torques_RNEA(
         std::shared_ptr<KDL::ChainJntToJacDotSolver> &jacobDotSolver,
@@ -386,11 +384,11 @@ namespace motion_specification_action
         double &force_to_apply_y_axis,
         double &force_to_apply_z_axis,
         const int &per_condition_constraint_count,
-        std::array<double, 4> &desired_quat_GF,
+        std::array<double, 4> &desired_quat_FrameName,
         const YAML::Node &motion_specification_params_object,
         const std::string &arm_name);
 
-    void get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
+    void get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
         const double &stiffness_lin_x_axis_data,
         const double &stiffness_lin_y_axis_data,
         const double &stiffness_lin_z_axis_data,
@@ -415,17 +413,17 @@ namespace motion_specification_action
         const double &force_to_apply_x_axis,
         const double &force_to_apply_y_axis,
         const double &force_to_apply_z_axis,
-        const std::array<double, 4> &desired_quat_GF,
+        const std::array<double, 4> &desired_quat_FrameName,
         double &apply_ee_force_x_axis_data,
         double &apply_ee_force_y_axis_data,
         double &apply_ee_force_z_axis_data,
         double &apply_ee_torque_x_axis_data,
         double &apply_ee_torque_y_axis_data,
         double &apply_ee_torque_z_axis_data,
-        KDL::Frame &desired_endEffPose_GF_arm,
-        const KDL::Frame &measured_endEffPose_GF_arm,
+        KDL::Frame &desired_endEffPose_FrameName_arm,
+        const KDL::Frame &measured_endEffPose_FrameName_arm,
         const int &per_condition_constraint_count,
-        KDL::Vector &angle_axis_diff_GF_arm,
+        KDL::Vector &angle_axis_diff_FrameName_arm,
         const YAML::Node &motion_specification_params_object,
         const std::string &arm_name);
 

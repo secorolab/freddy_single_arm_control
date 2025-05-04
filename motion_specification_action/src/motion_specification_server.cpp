@@ -25,8 +25,8 @@ namespace motion_specification_action
         frequency_of_state_publish(10),
         gravitational_acceleration{0.0f, 0.0f, -9.81f},
         time_period_of_complete_controller_cycle_data(0.0),
-        desired_quat_GF{0.0, 0.0, 0.0, 1.0},
-        measured_quat_GF{0.0, 0.0, 0.0, 1.0},
+        desired_quat_FrameName{0.0, 0.0, 0.0, 1.0},
+        measured_quat_FrameName{0.0, 0.0, 0.0, 1.0},
         measured_lin_pos_x_axis_data(0.0),
         measured_lin_pos_y_axis_data(0.0),
         measured_lin_pos_z_axis_data(0.0),
@@ -74,7 +74,8 @@ namespace motion_specification_action
         jnt_impedance_setpoint_is_set(false),
         state_publish_time_step(0.1),
         rne_output_jnt_torques_vector_to_set_control_mode(kinova_constants::NUMBER_OF_JOINTS, 0.0),
-        arm_name("kinova_gen3_2_right")
+        arm_name("kinova_gen3_2_right"),
+        frame_name("robot_base_link")
   {
     using namespace std::placeholders;
     package_share_directory = ament_index_cpp::get_package_share_directory("motion_specification_action");
@@ -86,21 +87,10 @@ namespace motion_specification_action
 
     read_config_file(config_file_object);
     initialise_solvers(jacobDotSolver, fkSolverPos, fkSolverVel, ikSolverAcc, idSolver, gravitational_acceleration, chain_urdf);
-    BL_x_axis_wrt_GF = KDL::Vector(BL_x_axis_wrt_GF_vector[0], BL_x_axis_wrt_GF_vector[1], BL_x_axis_wrt_GF_vector[2]);
-    BL_y_axis_wrt_GF = KDL::Vector(BL_y_axis_wrt_GF_vector[0], BL_y_axis_wrt_GF_vector[1], BL_y_axis_wrt_GF_vector[2]);
-    BL_z_axis_wrt_GF = KDL::Vector(BL_z_axis_wrt_GF_vector[0], BL_z_axis_wrt_GF_vector[1], BL_z_axis_wrt_GF_vector[2]);
-    BL_position_wrt_GF = KDL::Vector(BL_position_wrt_GF_vector[0], BL_position_wrt_GF_vector[1], BL_position_wrt_GF_vector[2]);
 
-    linkWrenches_GF = KDL::Wrenches(NUM_LINKS, KDL::Wrench::Zero());
+    linkWrenches_FrameName = KDL::Wrenches(NUM_LINKS, KDL::Wrench::Zero());
     linkWrenches_EE = KDL::Wrenches(NUM_LINKS, KDL::Wrench::Zero());
     linkWrenches_zero = KDL::Wrenches(NUM_LINKS, KDL::Wrench::Zero());
-
-    // Initialize the KDL frame
-    BL_wrt_GF = KDL::Rotation(BL_x_axis_wrt_GF, BL_y_axis_wrt_GF, BL_z_axis_wrt_GF);
-
-    BL_wrt_GF_frame = KDL::Frame(
-        BL_wrt_GF,           // rotation
-        BL_position_wrt_GF); // translation
 
     auto handle_goal = [this](
                            const rclcpp_action::GoalUUID &uuid,
@@ -149,6 +139,9 @@ namespace motion_specification_action
 
     joint_names_ = {"Actuator1", "Actuator2", "Actuator3", "Actuator4", "Actuator5", "Actuator6", "Actuator7"};
 
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
     // Start the control loop in a separate thread
     control_loop_thread_ = std::thread([this]()
                                        { this->control_loop(); });
@@ -172,11 +165,27 @@ namespace motion_specification_action
   //     std::cout << "Received signal: " << sig << std::endl;
   // }
 
-  void MotionSpecificationActionServer::publish_ee_pose(const double &measured_lin_pos_x_axis_data, const double &measured_lin_pos_y_axis_data, const double &measured_lin_pos_z_axis_data, const std::array<double, 4> &measured_quat_GF) {
+  void MotionSpecificationActionServer::lookup_transformation(
+      const std::string &target_frame,
+      const std::string &source_frame,
+      geometry_msgs::msg::TransformStamped &transform)
+  {
+    try
+    {
+      transform = tf_buffer_->lookupTransform(target_frame, source_frame, tf2::TimePointZero);
+    }
+    catch (tf2::TransformException &ex)
+    {
+      RCLCPP_WARN(this->get_logger(), "Could not transform %s to %s: %s", source_frame.c_str(), target_frame.c_str(), ex.what());
+      return;
+    }
+  }
+
+  void MotionSpecificationActionServer::publish_ee_pose(const double &measured_lin_pos_x_axis_data, const double &measured_lin_pos_y_axis_data, const double &measured_lin_pos_z_axis_data, const std::array<double, 4> &measured_quat_FrameName, const std::string &frame_name) {
     auto pose_msg = geometry_msgs::msg::PoseStamped();
 
     pose_msg.header.stamp = this->now();
-    pose_msg.header.frame_id = "robot_base_link";  // Set the base frame
+    pose_msg.header.frame_id = frame_name;
 
     // Example EE position (replace with real FK values)
     pose_msg.pose.position.x = measured_lin_pos_x_axis_data;
@@ -184,10 +193,10 @@ namespace motion_specification_action
     pose_msg.pose.position.z = measured_lin_pos_z_axis_data;
 
     // Example orientation (identity quaternion)
-    pose_msg.pose.orientation.x = measured_quat_GF[0];
-    pose_msg.pose.orientation.y = measured_quat_GF[1];
-    pose_msg.pose.orientation.z = measured_quat_GF[2];
-    pose_msg.pose.orientation.w = measured_quat_GF[3];
+    pose_msg.pose.orientation.x = measured_quat_FrameName[0];
+    pose_msg.pose.orientation.y = measured_quat_FrameName[1];
+    pose_msg.pose.orientation.z = measured_quat_FrameName[2];
+    pose_msg.pose.orientation.w = measured_quat_FrameName[3];
 
     pose_publisher_->publish(pose_msg);
   }
@@ -282,11 +291,11 @@ namespace motion_specification_action
                                                                         const KDL::JntArray &jnt_velocities,
                                                                         KDL::Frame &measured_endEffPose_BL,
                                                                         KDL::FrameVel &measured_endEffTwist_BL,
-                                                                        KDL::Frame &measured_endEffPose_GF,
-                                                                        KDL::FrameVel &measured_endEffTwist_GF,
+                                                                        KDL::Frame &measured_endEffPose_FrameName,
+                                                                        KDL::FrameVel &measured_endEffTwist_FrameName,
                                                                         std::shared_ptr<KDL::ChainFkSolverPos_recursive> &fkSolverPos,
                                                                         std::shared_ptr<KDL::ChainFkSolverVel_recursive> &fkSolverVel,
-                                                                        const KDL::Frame &BL_wrt_GF_frame)
+                                                                        const KDL::Frame &BL_wrt_FrameName_frame)
   {
     jnt_velocity.q = jnt_positions;
     jnt_velocity.qdot = jnt_velocities;
@@ -294,8 +303,8 @@ namespace motion_specification_action
     fkSolverPos->JntToCart(jnt_positions, measured_endEffPose_BL);
     fkSolverVel->JntToCart(jnt_velocity, measured_endEffTwist_BL);
 
-    measured_endEffPose_GF = BL_wrt_GF_frame * measured_endEffPose_BL;
-    measured_endEffTwist_GF = BL_wrt_GF_frame * measured_endEffTwist_BL;
+    measured_endEffPose_FrameName = BL_wrt_FrameName_frame * measured_endEffPose_BL;
+    measured_endEffTwist_FrameName = BL_wrt_FrameName_frame * measured_endEffTwist_BL;
   }
 
   void MotionSpecificationActionServer::calculate_joint_torques_RNEA(
@@ -723,7 +732,7 @@ namespace motion_specification_action
       double &force_to_apply_y_axis,
       double &force_to_apply_z_axis,
       const int &per_condition_constraint_count,
-      std::array<double, 4> &desired_quat_GF,
+      std::array<double, 4> &desired_quat_FrameName,
       const YAML::Node &motion_specification_params_object,
       const std::string &arm_name)
   {
@@ -816,7 +825,7 @@ namespace motion_specification_action
               if (!(constraint_str == "None"))
 
               {
-                desired_quat_GF[k] = constraint_value_list[k].as<double>();
+                desired_quat_FrameName[k] = constraint_value_list[k].as<double>();
               }
             }
             break;
@@ -834,7 +843,7 @@ namespace motion_specification_action
     }
   }
 
-  void MotionSpecificationActionServer::get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
+  void MotionSpecificationActionServer::get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
       const double &stiffness_lin_x_axis_data,
       const double &stiffness_lin_y_axis_data,
       const double &stiffness_lin_z_axis_data,
@@ -859,17 +868,17 @@ namespace motion_specification_action
       const double &force_to_apply_x_axis,
       const double &force_to_apply_y_axis,
       const double &force_to_apply_z_axis,
-      const std::array<double, 4> &desired_quat_GF,
+      const std::array<double, 4> &desired_quat_FrameName,
       double &apply_ee_force_x_axis_data,
       double &apply_ee_force_y_axis_data,
       double &apply_ee_force_z_axis_data,
       double &apply_ee_torque_x_axis_data,
       double &apply_ee_torque_y_axis_data,
       double &apply_ee_torque_z_axis_data,
-      KDL::Frame &desired_endEffPose_GF_arm,
-      const KDL::Frame &measured_endEffPose_GF_arm,
+      KDL::Frame &desired_endEffPose_FrameName_arm,
+      const KDL::Frame &measured_endEffPose_FrameName_arm,
       const int &per_condition_constraint_count,
-      KDL::Vector &angle_axis_diff_GF_arm,
+      KDL::Vector &angle_axis_diff_FrameName_arm,
       const YAML::Node &motion_specification_params_object,
       const std::string &arm_name)
   {
@@ -957,11 +966,11 @@ namespace motion_specification_action
             break;
 
           case ORIENTATION_QUATERNION:
-            desired_endEffPose_GF_arm.M = KDL::Rotation::Quaternion(desired_quat_GF[0], desired_quat_GF[1], desired_quat_GF[2], desired_quat_GF[3]);
-            angle_axis_diff_GF_arm = KDL::diff(measured_endEffPose_GF_arm.M, desired_endEffPose_GF_arm.M);
-            apply_ee_torque_x_axis_data = stiffness_roll_axis_data * angle_axis_diff_GF_arm(0);
-            apply_ee_torque_y_axis_data = stiffness_pitch_axis_data * angle_axis_diff_GF_arm(1);
-            apply_ee_torque_z_axis_data = stiffness_yaw_axis_data * angle_axis_diff_GF_arm(2);
+            desired_endEffPose_FrameName_arm.M = KDL::Rotation::Quaternion(desired_quat_FrameName[0], desired_quat_FrameName[1], desired_quat_FrameName[2], desired_quat_FrameName[3]);
+            angle_axis_diff_FrameName_arm = KDL::diff(measured_endEffPose_FrameName_arm.M, desired_endEffPose_FrameName_arm.M);
+            apply_ee_torque_x_axis_data = stiffness_roll_axis_data * angle_axis_diff_FrameName_arm(0);
+            apply_ee_torque_y_axis_data = stiffness_pitch_axis_data * angle_axis_diff_FrameName_arm(1);
+            apply_ee_torque_z_axis_data = stiffness_yaw_axis_data * angle_axis_diff_FrameName_arm(2);
 
             break;
 
@@ -972,7 +981,7 @@ namespace motion_specification_action
         }
         else
         {
-          std::cout << "[get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE] Constraint type not found" << std::endl;
+          std::cout << "[get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE] Constraint type not found" << std::endl;
           flag = 1; // stop the execution
         }
       }
@@ -1028,6 +1037,7 @@ namespace motion_specification_action
         return;
       };
 
+      frame_name = config_file_object[arm_name]["frame_name"].as<std::string>();
       STIFFNESS_GAIN_X = config_file_object[arm_name]["STIFFNESS_GAIN_X"].as<double>();
       STIFFNESS_GAIN_Y = config_file_object[arm_name]["STIFFNESS_GAIN_Y"].as<double>();
       STIFFNESS_GAIN_Z = config_file_object[arm_name]["STIFFNESS_GAIN_Z"].as<double>();
@@ -1059,16 +1069,35 @@ namespace motion_specification_action
       stiffness_yaw_axis_data = STIFFNESS_GAIN_YAW;
       stiffness_joint_impedance_ctrl = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
 
-      BL_x_axis_wrt_GF_vector = config_file_object[arm_name]["BL_x_axis_wrt_GF"].as<std::vector<double>>();
-      BL_y_axis_wrt_GF_vector = config_file_object[arm_name]["BL_y_axis_wrt_GF"].as<std::vector<double>>();
-      BL_z_axis_wrt_GF_vector = config_file_object[arm_name]["BL_z_axis_wrt_GF"].as<std::vector<double>>();
-      BL_position_wrt_GF_vector = config_file_object[arm_name]["BL_position_wrt_GF"].as<std::vector<double>>();
+      if (tf_buffer_->canTransform(frame_name, "base_link", tf2::TimePointZero))
+      {
+        transform_stamped = tf_buffer_->lookupTransform(
+            frame_name,
+            "base_link",
+            tf2::TimePointZero);  // Use latest available
+        try {
+          transform_stamped = tf_buffer_->lookupTransform(
+              frame_name,
+              "base_link",
+              tf2::TimePointZero);  // Use latest available
+        } catch (const tf2::TransformException &ex) {
+            RCLCPP_WARN(this->get_logger(), "Transform failed: %s", ex.what());
+            return;
+        }
+      }
+      else
+      {
+        RCLCPP_ERROR(this->get_logger(), "Transform not available");
+        return;
+      }
     }
     catch (const YAML::Exception &e)
     {
       RCLCPP_ERROR(this->get_logger(), "Error reading configuration parameters: %s", e.what());
       return;
     }
+
+    BL_wrt_FrameName_frame = tf2::transformToKDL(transform_stamped);
 
     configuration_file_read = true;
   }
@@ -1092,8 +1121,8 @@ namespace motion_specification_action
       get_end_effector_pose_and_twist(
           jnt_velocity, jnt_positions, jnt_velocities,
           measured_endEffPose_BL_arm, measured_endEffTwist_BL_arm,
-          measured_endEffPose_GF_arm, measured_endEffTwist_GF_arm,
-          fkSolverPos, fkSolverVel, BL_wrt_GF_frame);
+          measured_endEffPose_FrameName_arm, measured_endEffTwist_FrameName_arm,
+          fkSolverPos, fkSolverVel, BL_wrt_FrameName_frame);
 
       calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                     jnt_velocity, jd_qd, xdd,
@@ -1118,24 +1147,24 @@ namespace motion_specification_action
       get_end_effector_pose_and_twist(
           jnt_velocity, jnt_positions, jnt_velocities,
           measured_endEffPose_BL_arm, measured_endEffTwist_BL_arm,
-          measured_endEffPose_GF_arm, measured_endEffTwist_GF_arm,
-          fkSolverPos, fkSolverVel, BL_wrt_GF_frame);
+          measured_endEffPose_FrameName_arm, measured_endEffTwist_FrameName_arm,
+          fkSolverPos, fkSolverVel, BL_wrt_FrameName_frame);
 
-      measured_lin_pos_x_axis_data = measured_endEffPose_GF_arm.p.x();
-      measured_lin_vel_x_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.x();
-      measured_lin_pos_y_axis_data = measured_endEffPose_GF_arm.p.y();
-      measured_lin_vel_y_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.y();
-      measured_lin_pos_z_axis_data = measured_endEffPose_GF_arm.p.z();
-      measured_lin_vel_z_axis_data = measured_endEffTwist_GF_arm.GetTwist().vel.z();
-      measured_endEffPose_GF_arm.M.GetQuaternion(measured_quat_GF[0], measured_quat_GF[1], measured_quat_GF[2], measured_quat_GF[3]);
-      measured_endEffPose_GF_arm.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
+      measured_lin_pos_x_axis_data = measured_endEffPose_FrameName_arm.p.x();
+      measured_lin_vel_x_axis_data = measured_endEffTwist_FrameName_arm.GetTwist().vel.x();
+      measured_lin_pos_y_axis_data = measured_endEffPose_FrameName_arm.p.y();
+      measured_lin_vel_y_axis_data = measured_endEffTwist_FrameName_arm.GetTwist().vel.y();
+      measured_lin_pos_z_axis_data = measured_endEffPose_FrameName_arm.p.z();
+      measured_lin_vel_z_axis_data = measured_endEffTwist_FrameName_arm.GetTwist().vel.z();
+      measured_endEffPose_FrameName_arm.M.GetQuaternion(measured_quat_FrameName[0], measured_quat_FrameName[1], measured_quat_FrameName[2], measured_quat_FrameName[3]);
+      measured_endEffPose_FrameName_arm.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
 
       auto current_time = std::chrono::high_resolution_clock::now();
       auto time_since_last_publish = std::chrono::duration<double>(current_time-previous_time);
       if (time_since_last_publish.count() > state_publish_time_step)
       {
         publish_joint_states(jnt_positions);
-        // publish_ee_pose(measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data, measured_quat_GF);
+        // publish_ee_pose(measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data, measured_quat_FrameName);
       };
 
       if (goal_accepted_and_executing)
@@ -1153,7 +1182,7 @@ namespace motion_specification_action
               measured_lin_vel_x_axis_data,
               measured_lin_vel_y_axis_data,
               measured_lin_vel_z_axis_data,
-              linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS],
+              linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
               pre_condition_constraint_count,
               constraint_type_str,
               arm_name,
@@ -1182,7 +1211,7 @@ namespace motion_specification_action
                 measured_lin_vel_x_axis_data,
                 measured_lin_vel_y_axis_data,
                 measured_lin_vel_z_axis_data,
-                linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS],
+                linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
                 post_condition_constraint_count,
                 constraint_type_str,
                 arm_name,
@@ -1200,7 +1229,7 @@ namespace motion_specification_action
                 measured_lin_vel_x_axis_data,
                 measured_lin_vel_y_axis_data,
                 measured_lin_vel_z_axis_data,
-                linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS],
+                linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
                 prevail_condition_constraint_count,
                 constraint_type_str,
                 arm_name,
@@ -1236,11 +1265,11 @@ namespace motion_specification_action
                 force_to_apply_y_axis,
                 force_to_apply_z_axis,
                 per_condition_constraint_count,
-                desired_quat_GF,
+                desired_quat_FrameName,
                 motion_specification_params_object,
                 arm_name);
 
-            get_force_and_torque_from_controller_described_in_GF_to_apply_at_EE(
+            get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
                 stiffness_lin_x_axis_data,
                 stiffness_lin_y_axis_data,
                 stiffness_lin_z_axis_data,
@@ -1265,17 +1294,17 @@ namespace motion_specification_action
                 force_to_apply_x_axis,
                 force_to_apply_y_axis,
                 force_to_apply_z_axis,
-                desired_quat_GF,
+                desired_quat_FrameName,
                 apply_ee_force_x_axis_data,
                 apply_ee_force_y_axis_data,
                 apply_ee_force_z_axis_data,
                 apply_ee_torque_x_axis_data,
                 apply_ee_torque_y_axis_data,
                 apply_ee_torque_z_axis_data,
-                desired_endEffPose_GF_arm,
-                measured_endEffPose_GF_arm,
+                desired_endEffPose_FrameName_arm,
+                measured_endEffPose_FrameName_arm,
                 per_condition_constraint_count,
-                angle_axis_diff_GF_arm,
+                angle_axis_diff_FrameName_arm,
                 motion_specification_params_object,
                 arm_name);
           }
@@ -1309,40 +1338,40 @@ namespace motion_specification_action
       }
       else
       {
-        // write the ee torques to linkWrenches_GF
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(0) = -apply_ee_force_x_axis_data;
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(1) = -apply_ee_force_y_axis_data;
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(2) = -apply_ee_force_z_axis_data;
+        // write the ee torques to linkWrenches_FrameName
+        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(0) = -apply_ee_force_x_axis_data;
+        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(1) = -apply_ee_force_y_axis_data;
+        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(2) = -apply_ee_force_z_axis_data;
         // TODO: apply only when a per condition constraint exists for orientation
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(0) = -apply_ee_torque_x_axis_data;
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(1) = -apply_ee_torque_y_axis_data;
-        linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(2) = -apply_ee_torque_z_axis_data;
+        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(0) = -apply_ee_torque_x_axis_data;
+        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(1) = -apply_ee_torque_y_axis_data;
+        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(2) = -apply_ee_torque_z_axis_data;
 
         // thresholding in cartesian space of the end effector
         for (int i = 0; i < 3; i++)
         {
-          if (linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i) > 0.0)
+          if (linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(i) > 0.0)
           {
-            linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::min(WRENCH_THRESHOLD_LINEAR, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i));
+            linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::min(WRENCH_THRESHOLD_LINEAR, linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(i));
           }
           else
           {
-            linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::max(-WRENCH_THRESHOLD_LINEAR, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].force(i));
+            linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::max(-WRENCH_THRESHOLD_LINEAR, linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(i));
           }
 
-          if (linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i) > 0.0)
+          if (linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i) > 0.0)
           {
-            linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::min(WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i));
+            linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::min(WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i));
           }
           else
           {
-            linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::max(-WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_GF[kinova_constants::NUMBER_OF_JOINTS].torque(i));
+            linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::max(-WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i));
           }
         }
 
         // LinkWrenches are calculated in BL frame. As RNE solver requires them in EE frame, the wrenches are transformed from BL to EE frame
-        linkWrenches_EE[NUM_LINKS - 1].force = measured_endEffPose_GF_arm.M.Inverse() * linkWrenches_GF[NUM_LINKS - 1].force;
-        linkWrenches_EE[NUM_LINKS - 1].torque = measured_endEffPose_GF_arm.M.Inverse() * linkWrenches_GF[NUM_LINKS - 1].torque;
+        linkWrenches_EE[NUM_LINKS - 1].force = measured_endEffPose_FrameName_arm.M.Inverse() * linkWrenches_FrameName[NUM_LINKS - 1].force;
+        linkWrenches_EE[NUM_LINKS - 1].torque = measured_endEffPose_FrameName_arm.M.Inverse() * linkWrenches_FrameName[NUM_LINKS - 1].torque;
 
         calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                      jnt_velocity, jd_qd, xdd,
@@ -1394,8 +1423,8 @@ namespace motion_specification_action
     goal_accepted_and_executing = false;
     const auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<MotionSpecification::Feedback>();
-    auto &tcp_wrt_GF = feedback->tcp_position;
-    tcp_wrt_GF = {0.0, 0.0, 0.0};
+    auto &tcp_wrt_FrameName = feedback->tcp_position;
+    tcp_wrt_FrameName = {0.0, 0.0, 0.0};
     auto result = std::make_shared<MotionSpecification::Result>();
 
     try
@@ -1429,7 +1458,7 @@ namespace motion_specification_action
     while (goal_accepted_and_executing && rclcpp::ok())
     {
 
-      tcp_wrt_GF = {measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data};
+      tcp_wrt_FrameName = {measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data};
       goal_handle->publish_feedback(feedback);
 
       if (goal_handle->is_canceling() || motion_unsuccessful)
