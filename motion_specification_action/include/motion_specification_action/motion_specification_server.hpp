@@ -72,6 +72,7 @@ namespace motion_specification_action
   {
     GREATER_THAN = 1,
     LESS_THAN = 2,
+    EQUAL = 3,
   };
 
   enum condition_type
@@ -374,6 +375,15 @@ namespace motion_specification_action
         const condition_type &condition_type_value);
 
     void get_setpoints_from_motion_specification(
+        double &measured_lin_pos_x_axis_data,
+        double &measured_lin_pos_y_axis_data,
+        double &measured_lin_pos_z_axis_data,
+        double &measured_lin_vel_x_axis_data,
+        double &measured_lin_vel_y_axis_data,
+        double &measured_lin_vel_z_axis_data,
+        double &measured_roll_data,
+        double &measured_pitch_data,
+        double &measured_yaw_data,
         double &lin_pos_sp_x_axis_data,
         double &lin_pos_sp_y_axis_data,
         double &lin_pos_sp_z_axis_data,

@@ -362,7 +362,8 @@ namespace motion_specification_action
   {
     static const std::unordered_map<std::string, operator_type> operator_type_map = {
         {"GREATER_THAN", operator_type::GREATER_THAN},
-        {"LESS_THAN", operator_type::LESS_THAN}};
+        {"LESS_THAN", operator_type::LESS_THAN},
+        {"EQUAL", operator_type::EQUAL}};
     return operator_type_map;
   }
 
@@ -722,6 +723,15 @@ namespace motion_specification_action
   }
 
   void MotionSpecificationActionServer::get_setpoints_from_motion_specification(
+      double &measured_lin_pos_x_axis_data,
+      double &measured_lin_pos_y_axis_data,
+      double &measured_lin_pos_z_axis_data,
+      double &measured_lin_vel_x_axis_data,
+      double &measured_lin_vel_y_axis_data,
+      double &measured_lin_vel_z_axis_data,
+      double &measured_roll_data,
+      double &measured_pitch_data,
+      double &measured_yaw_data,
       double &lin_pos_sp_x_axis_data,
       double &lin_pos_sp_y_axis_data,
       double &lin_pos_sp_z_axis_data,
@@ -736,8 +746,12 @@ namespace motion_specification_action
       const YAML::Node &motion_specification_params_object,
       const std::string &arm_name)
   {
+    // TODO: add an option to set the setpoint as measured data or as uncontrolled data
     auto constraint_type_map = getConstraintTypeMap();
+    auto operator_type_map = getOperatorTypeMap();
     std::string condition_type_str = "PER_CONDITION";
+    operator_type operator_type_;
+    std::string operator_type_str;
 
     if (per_condition_constraint_count > 0)
     {
@@ -756,20 +770,76 @@ namespace motion_specification_action
             for (int k = 0; k < 3; k++)
             {
               std::string constraint_str = constraint_value_list[k].as<std::string>("");
-              if (!(constraint_str == "None"))
+              operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["operator"][k].as<std::string>();
+              auto operator_iterator = operator_type_map.find(operator_type_str);
+              double constraint_value = constraint_value_list[k].as<double>();
+              if (operator_iterator != operator_type_map.end())
               {
-                if (k == 0)
+                operator_type_ = operator_iterator->second;
+                switch (operator_type_)
                 {
-                  lin_pos_sp_x_axis_data = constraint_value_list[k].as<double>();
+                case GREATER_THAN:
+                  if (!(constraint_str == "None"))
+                  {
+                    if (k == 0 && measured_lin_pos_x_axis_data < constraint_value)
+                    {
+                      lin_pos_sp_x_axis_data = constraint_value;
+                    }
+                    else if (k == 1 && measured_lin_pos_y_axis_data < constraint_value)
+                    {
+                      lin_pos_sp_y_axis_data = constraint_value;
+                    }
+                    else if (k == 2 && measured_lin_pos_z_axis_data < constraint_value)
+                    {
+                      lin_pos_sp_z_axis_data = constraint_value;
+                    }
+                  }
+                  break;
+                  
+                case LESS_THAN:
+                  if (!(constraint_str == "None"))
+                  {
+                    if (k == 0 && measured_lin_pos_x_axis_data > constraint_value)
+                    {
+                      lin_pos_sp_x_axis_data = constraint_value;
+                    }
+                    else if (k == 1 && measured_lin_pos_y_axis_data > constraint_value)
+                    {
+                      lin_pos_sp_y_axis_data = constraint_value;
+                    }
+                    else if (k == 2 && measured_lin_pos_z_axis_data > constraint_value)
+                    {
+                      lin_pos_sp_z_axis_data = constraint_value;
+                    }
+                  }
+                  break;
+
+                case EQUAL:
+                  if (!(constraint_str == "None"))
+                  {
+                    if (k == 0)
+                    {
+                      lin_pos_sp_x_axis_data = constraint_value;
+                    }
+                    else if (k == 1)
+                    {
+                      lin_pos_sp_y_axis_data = constraint_value;
+                    }
+                    else if (k == 2)
+                    {
+                      lin_pos_sp_z_axis_data = constraint_value;
+                    }
+                  }
+                  break;
+
+                default:
+                  break;
                 }
-                else if (k == 1)
-                {
-                  lin_pos_sp_y_axis_data = constraint_value_list[k].as<double>();
-                }
-                else if (k == 2)
-                {
-                  lin_pos_sp_z_axis_data = constraint_value_list[k].as<double>();
-                }
+              }
+              else
+              {
+                std::cout << "[get_setpoints_from_motion_specification] Operator type not found" << std::endl;
+                flag = 1; // stop the execution
               }
             }
             break;
@@ -778,20 +848,74 @@ namespace motion_specification_action
             for (int k = 0; k < 3; k++)
             {
               std::string constraint_str = constraint_value_list[k].as<std::string>("");
-              if (!(constraint_str == "None"))
+              operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["operator"][k].as<std::string>();
+              auto operator_iterator = operator_type_map.find(operator_type_str);
+              double constraint_value = constraint_value_list[k].as<double>();
+              if (operator_iterator != operator_type_map.end())
               {
-                if (k == 0)
+                operator_type_ = operator_iterator->second;
+                switch (operator_type_)
                 {
-                  lin_vel_sp_x_axis_data = constraint_value_list[k].as<double>();
+                case GREATER_THAN:
+                  if (!(constraint_str == "None"))
+                  {
+                    if (k == 0 && measured_lin_vel_x_axis_data < constraint_value)
+                    {
+                      lin_vel_sp_x_axis_data = constraint_value;
+                    }
+                    else if (k == 1 && measured_lin_vel_y_axis_data < constraint_value)
+                    {
+                      lin_vel_sp_y_axis_data = constraint_value;
+                    }
+                    else if (k == 2 && measured_lin_vel_z_axis_data < constraint_value)
+                    {
+                      lin_vel_sp_z_axis_data = constraint_value;
+                    }
+                  }
+                  break;
+                case LESS_THAN:
+                  if (!(constraint_str == "None"))
+                  {
+                    if (k == 0 && measured_lin_vel_x_axis_data > constraint_value)
+                    {
+                      lin_vel_sp_x_axis_data = constraint_value;
+                    }
+                    else if (k == 1 && measured_lin_vel_y_axis_data > constraint_value)
+                    {
+                      lin_vel_sp_y_axis_data = constraint_value;
+                    }
+                    else if (k == 2 && measured_lin_vel_z_axis_data > constraint_value)
+                    {
+                      lin_vel_sp_z_axis_data = constraint_value;
+                    }
+                  }
+                  break;
+
+                case EQUAL:
+                  if (!(constraint_str == "None"))
+                  {
+                    if (k == 0)
+                    {
+                      lin_vel_sp_x_axis_data = constraint_value;
+                    }
+                    else if (k == 1)
+                    {
+                      lin_vel_sp_y_axis_data = constraint_value;
+                    }
+                    else if (k == 2)
+                    {
+                      lin_vel_sp_z_axis_data = constraint_value;
+                    }
+                  }
+                  break;
+                default:
+                  break;
                 }
-                else if (k == 1)
-                {
-                  lin_vel_sp_y_axis_data = constraint_value_list[k].as<double>();
-                }
-                else if (k == 2)
-                {
-                  lin_vel_sp_z_axis_data = constraint_value_list[k].as<double>();
-                }
+              }
+              else
+              {
+                std::cout << "[get_setpoints_from_motion_specification] Operator type not found" << std::endl;
+                flag = 1; // stop the execution
               }
             }
             break;
@@ -800,30 +924,86 @@ namespace motion_specification_action
             for (int k = 0; k < 3; k++)
             {
               std::string constraint_str = constraint_value_list[k].as<std::string>("");
-              if (!(constraint_str == "None"))
+              operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["operator"][k].as<std::string>();
+              auto operator_iterator = operator_type_map.find(operator_type_str);
+              double constraint_value = constraint_value_list[k].as<double>();
+              if (operator_iterator != operator_type_map.end())
               {
-                if (k == 0)
+                operator_type_ = operator_iterator->second;
+                switch (operator_type_)
                 {
-                  force_to_apply_x_axis = constraint_value_list[k].as<double>();
+                case GREATER_THAN:
+                  if (!(constraint_str == "None"))
+                  {
+                    if (k == 0 && force_to_apply_x_axis < constraint_value)
+                    {
+                      force_to_apply_x_axis = constraint_value;
+                    }
+                    else if (k == 1 && force_to_apply_y_axis < constraint_value)
+                    {
+                      force_to_apply_y_axis = constraint_value;
+                    }
+                    else if (k == 2 && force_to_apply_z_axis < constraint_value)
+                    {
+                      force_to_apply_z_axis = constraint_value;
+                    }
+                  }
+                  break;
+
+                case LESS_THAN:
+                  if (!(constraint_str == "None"))
+                  {
+                    if (k == 0 && force_to_apply_x_axis > constraint_value)
+                    {
+                      force_to_apply_x_axis = constraint_value;
+                    }
+                    else if (k == 1 && force_to_apply_y_axis > constraint_value)
+                    {
+                      force_to_apply_y_axis = constraint_value;
+                    }
+                    else if (k == 2 && force_to_apply_z_axis > constraint_value)
+                    {
+                      force_to_apply_z_axis = constraint_value;
+                    }
+                  }
+                  break;
+
+                case EQUAL:
+                  if (!(constraint_str == "None"))
+                  {
+                    if (k == 0)
+                    {
+                      force_to_apply_x_axis = constraint_value;
+                    }
+                    else if (k == 1)
+                    {
+                      force_to_apply_y_axis = constraint_value;
+                    }
+                    else if (k == 2)
+                    {
+                      force_to_apply_z_axis = constraint_value;
+                    }
+                  }
+                  break;
+
+                default:
+                  break;
                 }
-                else if (k == 1)
-                {
-                  force_to_apply_y_axis = constraint_value_list[k].as<double>();
-                }
-                else if (k == 2)
-                {
-                  force_to_apply_z_axis = constraint_value_list[k].as<double>();
-                }
+              }
+              else
+              {
+                std::cout << "[get_setpoints_from_motion_specification] Operator type not found" << std::endl;
+                flag = 1; // stop the execution
               }
             }
             break;
 
+          // Note: only equal operator is considered for desired orientation
           case ORIENTATION_QUATERNION:
             for (int k = 0; k < 4; k++)
             {
               std::string constraint_str = constraint_value_list[k].as<std::string>("");
               if (!(constraint_str == "None"))
-
               {
                 desired_quat_FrameName[k] = constraint_value_list[k].as<double>();
               }
@@ -1255,6 +1435,15 @@ namespace motion_specification_action
           else
           {
             get_setpoints_from_motion_specification(
+                measured_lin_pos_x_axis_data,
+                measured_lin_pos_y_axis_data,
+                measured_lin_pos_z_axis_data,
+                measured_lin_vel_x_axis_data,
+                measured_lin_vel_y_axis_data,
+                measured_lin_vel_z_axis_data,
+                measured_roll_data,
+                measured_pitch_data,
+                measured_yaw_data,
                 lin_pos_sp_x_axis_data,
                 lin_pos_sp_y_axis_data,
                 lin_pos_sp_z_axis_data,
