@@ -101,6 +101,8 @@ namespace motion_specification_action
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     geometry_msgs::msg::TransformStamped transform_stamped;
+    std::chrono::duration<double> transform_timeout_duration;
+    bool transform_available;
 
     std::thread control_loop_thread_;
     // Atomic flag to control loop execution, used to stop loop when destructor is called. 
@@ -301,6 +303,13 @@ namespace motion_specification_action
         kinova_mediator &kinova_arm_mediator);
 
     void read_ms_conditions_count(const YAML::Node &motion_specification_params_object);
+    void read_frame_name(const YAML::Node &motion_specification_params_object);
+    void get_transform_BL_wrt_desired_frame(
+      const std::string &frame_name,
+      KDL::Frame &BL_wrt_FrameName_frame,
+      geometry_msgs::msg::TransformStamped &transform_stamped,
+      std::chrono::duration<double> &transform_timeout_duration,
+      bool &transform_available);
     // void handle_signal(int sig);
 
     void kinova_feedback(kinova_mediator &kinova_arm_mediator,

@@ -75,7 +75,9 @@ namespace motion_specification_action
         state_publish_time_step(0.1),
         rne_output_jnt_torques_vector_to_set_control_mode(kinova_constants::NUMBER_OF_JOINTS, 0.0),
         arm_name("kinova_gen3_2_right"),
-        frame_name("robot_base_link")
+        frame_name("robot_base_link"),
+        transform_available(false),
+        transform_timeout_duration(std::chrono::seconds(10))
   {
     using namespace std::placeholders;
     package_share_directory = ament_index_cpp::get_package_share_directory("motion_specification_action");
@@ -1176,6 +1178,11 @@ namespace motion_specification_action
     prevail_condition_constraint_count = motion_specification_params_object[arm_name]["PREVAIL_CONDITION"]["constraint_count"].as<int>();
   }
 
+  void MotionSpecificationActionServer::read_frame_name(const YAML::Node &motion_specification_params_object)
+  {
+    frame_name = motion_specification_params_object[arm_name]["frame_name"].as<std::string>();
+  }
+
   void MotionSpecificationActionServer::parse_urdf_file(const std::string &urdf_file_path, KDL::Tree &kinematic_tree, KDL::Chain &chain_urdf, unsigned int &NUM_LINKS)
   {
     RCLCPP_INFO(this->get_logger(), "Parsing URDF file");
@@ -1217,7 +1224,6 @@ namespace motion_specification_action
         return;
       };
 
-      frame_name = config_file_object[arm_name]["frame_name"].as<std::string>();
       STIFFNESS_GAIN_X = config_file_object[arm_name]["STIFFNESS_GAIN_X"].as<double>();
       STIFFNESS_GAIN_Y = config_file_object[arm_name]["STIFFNESS_GAIN_Y"].as<double>();
       STIFFNESS_GAIN_Z = config_file_object[arm_name]["STIFFNESS_GAIN_Z"].as<double>();
@@ -1248,28 +1254,6 @@ namespace motion_specification_action
       stiffness_pitch_axis_data = STIFFNESS_GAIN_PITCH;
       stiffness_yaw_axis_data = STIFFNESS_GAIN_YAW;
       stiffness_joint_impedance_ctrl = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
-
-      if (tf_buffer_->canTransform(frame_name, "base_link", tf2::TimePointZero))
-      {
-        transform_stamped = tf_buffer_->lookupTransform(
-            frame_name,
-            "base_link",
-            tf2::TimePointZero);  // Use latest available
-        try {
-          transform_stamped = tf_buffer_->lookupTransform(
-              frame_name,
-              "base_link",
-              tf2::TimePointZero);  // Use latest available
-        } catch (const tf2::TransformException &ex) {
-            RCLCPP_WARN(this->get_logger(), "Transform failed: %s", ex.what());
-            return;
-        }
-      }
-      else
-      {
-        RCLCPP_ERROR(this->get_logger(), "Transform not available");
-        return;
-      }
     }
     catch (const YAML::Exception &e)
     {
@@ -1277,8 +1261,7 @@ namespace motion_specification_action
       return;
     }
 
-    BL_wrt_FrameName_frame = tf2::transformToKDL(transform_stamped);
-
+    RCLCPP_INFO(this->get_logger(), "Configuration file read successfully");
     configuration_file_read = true;
   }
 
@@ -1605,6 +1588,47 @@ namespace motion_specification_action
     kinova_arm_mediator.set_control_mode(control_mode::POSITION, nullptr);
   }
 
+  void MotionSpecificationActionServer::get_transform_BL_wrt_desired_frame(
+      const std::string &frame_name,
+      KDL::Frame &BL_wrt_FrameName_frame,
+      geometry_msgs::msg::TransformStamped &transform_stamped,
+      std::chrono::duration<double> &transform_timeout_duration,
+      bool &transform_available)
+  {
+    auto start_time = std::chrono::high_resolution_clock::now();
+    auto current_time = std::chrono::high_resolution_clock::now();
+
+    while (current_time - start_time < transform_timeout_duration)
+    {
+      current_time = std::chrono::high_resolution_clock::now();
+      // Check if the transform is available
+      if (tf_buffer_->canTransform(frame_name, "base_link", tf2::TimePointZero))
+      {
+        try {
+          transform_stamped = tf_buffer_->lookupTransform(
+            frame_name,
+            "base_link",
+            tf2::TimePointZero);
+          transform_available = true;
+        } catch (const tf2::TransformException &ex) {
+            RCLCPP_WARN(this->get_logger(), "Transform failed: %s", ex.what());
+            transform_available = false;
+        }
+        if (transform_available)
+        {
+          break; // Exit the loop if the transform is available
+        }
+        // sleep for a short duration to allow the transform to be available
+        RCLCPP_INFO(this->get_logger(), "Waiting for transform from %s to base_link", frame_name.c_str());
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Spin the node to process incoming messages
+        rclcpp::spin_some(this->get_node_base_interface());
+      }
+      BL_wrt_FrameName_frame = tf2::transformToKDL(transform_stamped);
+    }
+  }
+
   void MotionSpecificationActionServer::execute(const std::shared_ptr<GoalHandleMotionSpecification> goal_handle)
   {
     RCLCPP_INFO(this->get_logger(), "Executing goal");
@@ -1630,6 +1654,7 @@ namespace motion_specification_action
     try
     {
       read_ms_conditions_count(motion_specification_params_object);
+      read_frame_name(motion_specification_params_object);
     }
     catch (const YAML::Exception &e)
     {
@@ -1638,6 +1663,14 @@ namespace motion_specification_action
       goal_handle->abort(result);
       return;
     } // if there is an error while reading the motion specification, abort the goal
+
+
+    get_transform_BL_wrt_desired_frame(
+        frame_name,
+        measured_endEffPose_FrameName_arm,
+        transform_stamped,
+        transform_timeout_duration,
+        transform_available);
 
     // Initialize the parameters
     reset_flags();
