@@ -162,6 +162,18 @@ namespace motion_specification_action
 
     // Declarations of the transformation-related variables
     KDL::Frame BL_wrt_FrameName_frame;
+    std::vector<double> BL_x_axis_wrt_GF_vector;
+    std::vector<double> BL_y_axis_wrt_GF_vector;
+    std::vector<double> BL_z_axis_wrt_GF_vector;
+    std::vector<double> BL_position_wrt_GF_vector;
+
+    KDL::Vector BL_x_axis_wrt_GF;
+    KDL::Vector BL_y_axis_wrt_GF;
+    KDL::Vector BL_z_axis_wrt_GF;
+    KDL::Vector BL_position_wrt_GF;
+
+    KDL::Rotation BL_wrt_GF;
+    KDL::Frame BL_wrt_GF_frame;
 
     // end effector Pose
     KDL::Frame measured_endEffPose_BL_arm;
@@ -383,29 +395,44 @@ namespace motion_specification_action
         const YAML::Node &motion_specification_params_object,
         const condition_type &condition_type_value);
 
+    // void get_setpoints_from_motion_specification(
+    //     double &measured_lin_pos_x_axis_data,
+    //     double &measured_lin_pos_y_axis_data,
+    //     double &measured_lin_pos_z_axis_data,
+    //     double &measured_lin_vel_x_axis_data,
+    //     double &measured_lin_vel_y_axis_data,
+    //     double &measured_lin_vel_z_axis_data,
+    //     double &measured_roll_data,
+    //     double &measured_pitch_data,
+    //     double &measured_yaw_data,
+    //     double &lin_pos_sp_x_axis_data,
+    //     double &lin_pos_sp_y_axis_data,
+    //     double &lin_pos_sp_z_axis_data,
+    //     double &lin_vel_sp_x_axis_data,
+    //     double &lin_vel_sp_y_axis_data,
+    //     double &lin_vel_sp_z_axis_data,
+    //     double &force_to_apply_x_axis,
+    //     double &force_to_apply_y_axis,
+    //     double &force_to_apply_z_axis,
+    //     const int &per_condition_constraint_count,
+    //     std::array<double, 4> &desired_quat_FrameName,
+    //     const YAML::Node &motion_specification_params_object,
+    //     const std::string &arm_name);
+
     void get_setpoints_from_motion_specification(
-        double &measured_lin_pos_x_axis_data,
-        double &measured_lin_pos_y_axis_data,
-        double &measured_lin_pos_z_axis_data,
-        double &measured_lin_vel_x_axis_data,
-        double &measured_lin_vel_y_axis_data,
-        double &measured_lin_vel_z_axis_data,
-        double &measured_roll_data,
-        double &measured_pitch_data,
-        double &measured_yaw_data,
-        double &lin_pos_sp_x_axis_data,
-        double &lin_pos_sp_y_axis_data,
-        double &lin_pos_sp_z_axis_data,
-        double &lin_vel_sp_x_axis_data,
-        double &lin_vel_sp_y_axis_data,
-        double &lin_vel_sp_z_axis_data,
-        double &force_to_apply_x_axis,
-        double &force_to_apply_y_axis,
-        double &force_to_apply_z_axis,
-        const int &per_condition_constraint_count,
-        std::array<double, 4> &desired_quat_FrameName,
-        const YAML::Node &motion_specification_params_object,
-        const std::string &arm_name);
+      double &lin_pos_sp_x_axis_data,
+      double &lin_pos_sp_y_axis_data,
+      double &lin_pos_sp_z_axis_data,
+      double &lin_vel_sp_x_axis_data,
+      double &lin_vel_sp_y_axis_data,
+      double &lin_vel_sp_z_axis_data,
+      double &force_to_apply_x_axis,
+      double &force_to_apply_y_axis,
+      double &force_to_apply_z_axis,
+      const int &per_condition_constraint_count,
+      std::array<double, 4> &desired_quat_FrameName,
+      const YAML::Node &motion_specification_params_object,
+      const std::string &arm_name);
 
     void get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
         const double &stiffness_lin_x_axis_data,
