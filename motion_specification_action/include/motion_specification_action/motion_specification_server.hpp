@@ -79,8 +79,7 @@ namespace motion_specification_action
   {
     PRE_CONDITION = 1,
     PER_CONDITION = 2,
-    POST_CONDITION = 3,
-    PREVAIL_CONDITION = 4
+    POST_CONDITION = 3
   };
 
   class MotionSpecificationActionServer : public rclcpp::Node
@@ -104,19 +103,17 @@ namespace motion_specification_action
     std::chrono::duration<double> transform_timeout_duration;
     bool transform_available;
 
-    std::thread control_loop_thread_;
     // Atomic flag to control loop execution, used to stop loop when destructor is called. 
     // atomic<bool> ensures safe access across threads.
-    std::atomic<bool> control_loop_active_;
     volatile sig_atomic_t flag;                           // to break control loop
-    std::atomic<bool> goal_accepted_and_executing;        // decide when to run while loop in execute block
-    std::atomic<bool> motion_unsuccessful;                // flag set when prevail_condition is not met
-    std::atomic<bool> switch_to_joint_impendance_control; // when control loop is running and no active ms is specified after the first one onwards
+    bool goal_accepted_and_executing;        // decide when to run while loop in execute block
+    bool switch_to_joint_impendance_control; // when control loop is running and no active ms is specified after the first one onwards
     bool configuration_file_read;
     bool jnt_impedance_setpoint_is_set;
-    std::atomic<bool> pre_condition_satisfied;
-    std::atomic<bool> post_condition_satisfied;
-    std::atomic<bool> prevail_condition_satisfied;
+    bool torque_control_mode_set;
+    bool communication_setup_done;
+    bool pre_condition_satisfied;
+    bool post_condition_satisfied;
 
     // Control loop related: kinova communicatoin, KDL data structure handling
     struct sigaction sa;
@@ -141,7 +138,6 @@ namespace motion_specification_action
     int pre_condition_constraint_count;
     int per_condition_constraint_count;
     int post_condition_constraint_count;
-    int prevail_condition_constraint_count;
     // int motion_specification_read;
     int frequency_of_state_publish;
 
@@ -177,7 +173,7 @@ namespace motion_specification_action
 
     // end effector Pose
     KDL::Frame measured_endEffPose_BL_arm;
-    KDL::Frame measured_endEffPose_FrameName_arm;
+    KDL::Frame measured_endEffPose_FrameName;
     KDL::FrameVel measured_endEffTwist_BL_arm;
     KDL::FrameVel measured_endEffTwist_FrameName_arm;
 
@@ -296,7 +292,6 @@ namespace motion_specification_action
     YAML::Node motion_specification_params_object;
 
     void publish_joint_states(KDL::JntArray& jnt_positions);
-    void lookup_transformation(const std::string &target_frame, const std::string &source_frame, geometry_msgs::msg::TransformStamped &transform);
     void publish_ee_pose(const double &measured_lin_pos_x_axis_data, const double &measured_lin_pos_y_axis_data, const double &measured_lin_pos_z_axis_data, const std::array<double, 4> &measured_quat_FrameName, const std::string &frame_name);
     void read_config_file(const YAML::Node &config_file_object);
     void parse_urdf_file(const std::string &urdf_file_path, KDL::Tree &kinematic_tree, KDL::Chain &chain_urdf, unsigned int &NUM_LINKS);
@@ -312,7 +307,8 @@ namespace motion_specification_action
 
     void kinova_setup_communication(
         const robot_controlled &robot_to_control,
-        kinova_mediator &kinova_arm_mediator);
+        kinova_mediator &kinova_arm_mediator,
+        bool &communication_setup_done);
 
     void read_ms_conditions_count(const YAML::Node &motion_specification_params_object);
     void read_frame_name(const YAML::Node &motion_specification_params_object);
@@ -377,7 +373,7 @@ namespace motion_specification_action
         const std::string &arm_name,
         const condition_type &condition_type_value);
 
-    void check_pre_or_post_or_prevail_condition_satisfaction(
+    void check_pre_or_post_condition_satisfaction(
         const double &measured_lin_pos_x_axis_data,
         const double &measured_lin_pos_y_axis_data,
         const double &measured_lin_pos_z_axis_data,
@@ -391,7 +387,7 @@ namespace motion_specification_action
         const int &condition_constraint_count,
         std::string &constraint_type_str,
         const std::string &arm_name,
-        std::atomic<bool> &condition_satisfied,
+        bool &condition_satisfied,
         const YAML::Node &motion_specification_params_object,
         const condition_type &condition_type_value);
 
@@ -467,7 +463,7 @@ namespace motion_specification_action
         double &apply_ee_torque_y_axis_data,
         double &apply_ee_torque_z_axis_data,
         KDL::Frame &desired_endEffPose_FrameName_arm,
-        const KDL::Frame &measured_endEffPose_FrameName_arm,
+        const KDL::Frame &measured_endEffPose_FrameName,
         const int &per_condition_constraint_count,
         KDL::Vector &angle_axis_diff_FrameName_arm,
         const YAML::Node &motion_specification_params_object,

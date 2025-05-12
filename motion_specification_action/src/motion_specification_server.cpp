@@ -4,7 +4,6 @@ namespace motion_specification_action
 {
   MotionSpecificationActionServer::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
       : Node("motion_specification_action_server", options),
-        control_loop_active_(true),
         flag(0),
         goal_accepted_and_executing(false),
         jnt_positions(kinova_constants::NUMBER_OF_JOINTS),
@@ -20,7 +19,6 @@ namespace motion_specification_action
         pre_condition_constraint_count(0),
         per_condition_constraint_count(0),
         post_condition_constraint_count(0),
-        prevail_condition_constraint_count(0),
         iterationCount(0),
         frequency_of_state_publish(10),
         gravitational_acceleration{0.0f, 0.0f, -9.81f},
@@ -66,12 +64,12 @@ namespace motion_specification_action
         force_to_apply_x_axis(0.0),
         force_to_apply_y_axis(0.0),
         force_to_apply_z_axis(0.0),
+        torque_control_mode_set(false),
         configuration_file_read(false),
-        motion_unsuccessful(false),
         pre_condition_satisfied(false),
         post_condition_satisfied(false),
-        prevail_condition_satisfied(false),
         jnt_impedance_setpoint_is_set(false),
+        communication_setup_done(false),
         state_publish_time_step(0.1),
         rne_output_jnt_torques_vector_to_set_control_mode(kinova_constants::NUMBER_OF_JOINTS, 0.0),
         arm_name("kinova_gen3_2_right"),
@@ -157,20 +155,10 @@ namespace motion_specification_action
 
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-
-    // Start the control loop in a separate thread
-    control_loop_thread_ = std::thread([this]()
-                                       { this->control_loop(); });
   }
 
   MotionSpecificationActionServer::~MotionSpecificationActionServer()
   {
-    // Stop the control loop thread gracefully when the node is shutting down
-    control_loop_active_ = false;
-    if (control_loop_thread_.joinable())
-    {
-      control_loop_thread_.join();
-    }
   }
 
   // Define all the functions related to the control loop
@@ -181,23 +169,9 @@ namespace motion_specification_action
   //     std::cout << "Received signal: " << sig << std::endl;
   // }
 
-  void MotionSpecificationActionServer::lookup_transformation(
-      const std::string &target_frame,
-      const std::string &source_frame,
-      geometry_msgs::msg::TransformStamped &transform)
-  {
-    try
-    {
-      transform = tf_buffer_->lookupTransform(target_frame, source_frame, tf2::TimePointZero);
-    }
-    catch (tf2::TransformException &ex)
-    {
-      RCLCPP_WARN(this->get_logger(), "Could not transform %s to %s: %s", source_frame.c_str(), target_frame.c_str(), ex.what());
-      return;
-    }
-  }
 
-  void MotionSpecificationActionServer::publish_ee_pose(const double &measured_lin_pos_x_axis_data, const double &measured_lin_pos_y_axis_data, const double &measured_lin_pos_z_axis_data, const std::array<double, 4> &measured_quat_FrameName, const std::string &frame_name) {
+  void MotionSpecificationActionServer::publish_ee_pose(const double &measured_lin_pos_x_axis_data, const double &measured_lin_pos_y_axis_data, const double &measured_lin_pos_z_axis_data, const std::array<double, 4> &measured_quat_FrameName, const std::string &frame_name) 
+  {
     auto pose_msg = geometry_msgs::msg::PoseStamped();
 
     pose_msg.header.stamp = this->now();
@@ -217,7 +191,8 @@ namespace motion_specification_action
     pose_publisher_->publish(pose_msg);
   }
 
-  void MotionSpecificationActionServer::publish_joint_states(KDL::JntArray& jnt_positions) {
+  void MotionSpecificationActionServer::publish_joint_states(KDL::JntArray& jnt_positions) 
+  {
     auto message = sensor_msgs::msg::JointState();
     message.header.stamp = this->now();
     message.name = joint_names_;
@@ -234,22 +209,22 @@ namespace motion_specification_action
     };
 
     joint_state_pub_->publish(message);
-}
+  }
 
   void MotionSpecificationActionServer::reset_flags()
   {
     flag = 0;
-    motion_unsuccessful = false;
+    torque_control_mode_set = false;
     switch_to_joint_impendance_control = false;
     jnt_impedance_setpoint_is_set = false;
     pre_condition_satisfied = false;
     post_condition_satisfied = false;
-    prevail_condition_satisfied = false;
   }
 
   void MotionSpecificationActionServer::kinova_setup_communication(
       const robot_controlled &robot_to_control,
-      kinova_mediator &kinova_arm_mediator)
+      kinova_mediator &kinova_arm_mediator,
+      bool &communication_setup_done)
   {
     // robot communication
     if (robot_to_control == robot_controlled::KINOVA_GEN3_1_LEFT)
@@ -268,7 +243,10 @@ namespace motion_specification_action
     {
       std::cout << "Invalid robot to control" << std::endl;
       flag = 1; // stop the execution
+      communication_setup_done = false;
     }
+    std::cout << "Kinova arm mediator initialized" << std::endl;
+    communication_setup_done = true;
   }
 
   void MotionSpecificationActionServer::initialise_solvers(
@@ -318,6 +296,12 @@ namespace motion_specification_action
 
     fkSolverPos->JntToCart(jnt_positions, measured_endEffPose_BL);
     fkSolverVel->JntToCart(jnt_velocity, measured_endEffTwist_BL);
+
+    // // if (frame_name=="marker_frame_0")
+    // {
+    //   std::cout << "BL_wrt_FrameName_frame" << BL_wrt_FrameName_frame.p.x() << ", " << BL_wrt_FrameName_frame.p.y() << ", " << BL_wrt_FrameName_frame.p.z() << std::endl;
+    //   std::cout << "measured_endEffPose_BL" << measured_endEffPose_BL.p.x() << ", " << measured_endEffPose_BL.p.y() << ", " << measured_endEffPose_BL.p.z() << std::endl;
+    // }
 
     measured_endEffPose_FrameName = BL_wrt_FrameName_frame * measured_endEffPose_BL;
     measured_endEffTwist_FrameName = BL_wrt_FrameName_frame * measured_endEffTwist_BL;
@@ -388,8 +372,7 @@ namespace motion_specification_action
     static const std::unordered_map<std::string, condition_type> condition_type_map = {
         {"PRE_CONDITION", condition_type::PRE_CONDITION},
         {"PER_CONDITION", condition_type::PER_CONDITION},
-        {"POST_CONDITION", condition_type::POST_CONDITION},
-        {"PREVAIL_CONDITION", condition_type::PREVAIL_CONDITION}};
+        {"POST_CONDITION", condition_type::POST_CONDITION}};
     return condition_type_map;
   }
 
@@ -434,10 +417,6 @@ namespace motion_specification_action
     else if (condition_type_value == condition_type::POST_CONDITION)
     {
       condition_type_str = "POST_CONDITION";
-    }
-    else if (condition_type_value == condition_type::PREVAIL_CONDITION)
-    {
-      condition_type_str = "PREVAIL_CONDITION";
     }
     else
     {
@@ -530,10 +509,6 @@ namespace motion_specification_action
     {
       condition_type_str = "POST_CONDITION";
     }
-    else if (condition_type_value == condition_type::PREVAIL_CONDITION)
-    {
-      condition_type_str = "PREVAIL_CONDITION";
-    }
     else
     {
       std::cout << "[check_1D_vector_constraint_satisfaction] Condition type not found" << std::endl;
@@ -579,7 +554,7 @@ namespace motion_specification_action
     }
   }
 
-  void MotionSpecificationActionServer::check_pre_or_post_or_prevail_condition_satisfaction(
+  void MotionSpecificationActionServer::check_pre_or_post_condition_satisfaction(
       const double &measured_lin_pos_x_axis_data,
       const double &measured_lin_pos_y_axis_data,
       const double &measured_lin_pos_z_axis_data,
@@ -593,7 +568,7 @@ namespace motion_specification_action
       const int &condition_constraint_count,
       std::string &constraint_type_str,
       const std::string &arm_name,
-      std::atomic<bool> &condition_satisfied,
+      bool &condition_satisfied,
       const YAML::Node &motion_specification_params_object,
       const condition_type &condition_type_value)
   {
@@ -615,13 +590,9 @@ namespace motion_specification_action
         {
           condition_type_str = "POST_CONDITION";
         }
-        else if (condition_type_value == condition_type::PREVAIL_CONDITION)
-        {
-          condition_type_str = "PREVAIL_CONDITION";
-        }
         else
         {
-          std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Condition type not found" << std::endl;
+          std::cout << "[check_pre_or_post_condition_satisfaction] Condition type not found" << std::endl;
           flag = 1; // stop the execution
         }
         constraint_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
@@ -649,7 +620,7 @@ namespace motion_specification_action
           case VELOCITY_XYZ:
             if (condition_type_value == condition_type::PRE_CONDITION)
             {
-              std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Velocity constraint not allowed in pre-condition" << std::endl;
+              std::cout << "[check_pre_or_post_condition_satisfaction] Velocity constraint not allowed in pre-condition" << std::endl;
               flag = 1; // stop the execution
               break;
             }
@@ -679,7 +650,7 @@ namespace motion_specification_action
           case FORCE_XYZ:
             if (condition_type_value == condition_type::PRE_CONDITION)
             {
-              std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Force constraint not allowed in pre-condition" << std::endl;
+              std::cout << "[check_pre_or_post_condition_satisfaction] Force constraint not allowed in pre-condition" << std::endl;
               flag = 1; // stop the execution
               break;
             }
@@ -697,7 +668,7 @@ namespace motion_specification_action
           case TORQUE_RPY:
             if (condition_type_value == condition_type::PRE_CONDITION)
             {
-              std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Torque constraint not allowed in pre-condition" << std::endl;
+              std::cout << "[check_pre_or_post_condition_satisfaction] Torque constraint not allowed in pre-condition" << std::endl;
               flag = 1; // stop the execution
               break;
             }
@@ -713,14 +684,14 @@ namespace motion_specification_action
             break;
 
           default:
-            std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Constraint checking not defined for given constraint" << std::endl;
+            std::cout << "[check_pre_or_post_condition_satisfaction] Constraint checking not defined for given constraint" << std::endl;
             flag = 1; // stop the execution
             break;
           }
         }
         else
         {
-          std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Constraint type not found" << std::endl;
+          std::cout << "[check_pre_or_post_condition_satisfaction] Constraint type not found" << std::endl;
           flag = 1; // stop the execution
         }
 
@@ -738,308 +709,6 @@ namespace motion_specification_action
     }
   }
 
-  // void MotionSpecificationActionServer::get_setpoints_from_motion_specification(
-  //     double &measured_lin_pos_x_axis_data,
-  //     double &measured_lin_pos_y_axis_data,
-  //     double &measured_lin_pos_z_axis_data,
-  //     double &measured_lin_vel_x_axis_data,
-  //     double &measured_lin_vel_y_axis_data,
-  //     double &measured_lin_vel_z_axis_data,
-  //     double &measured_roll_data,
-  //     double &measured_pitch_data,
-  //     double &measured_yaw_data,
-  //     double &lin_pos_sp_x_axis_data,
-  //     double &lin_pos_sp_y_axis_data,
-  //     double &lin_pos_sp_z_axis_data,
-  //     double &lin_vel_sp_x_axis_data,
-  //     double &lin_vel_sp_y_axis_data,
-  //     double &lin_vel_sp_z_axis_data,
-  //     double &force_to_apply_x_axis,
-  //     double &force_to_apply_y_axis,
-  //     double &force_to_apply_z_axis,
-  //     const int &per_condition_constraint_count,
-  //     std::array<double, 4> &desired_quat_FrameName,
-  //     const YAML::Node &motion_specification_params_object,
-  //     const std::string &arm_name)
-  // {
-  //   // TODO: add an option to set the setpoint as measured data or as uncontrolled data
-  //   auto constraint_type_map = getConstraintTypeMap();
-  //   auto operator_type_map = getOperatorTypeMap();
-  //   std::string condition_type_str = "PER_CONDITION";
-  //   operator_type operator_type_;
-  //   std::string operator_type_str;
-
-  //   if (per_condition_constraint_count > 0)
-  //   {
-  //     for (int i = 1; i < per_condition_constraint_count + 1; i++)
-  //     {
-  //       std::string constraint_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
-  //       auto constraint_iterator = constraint_type_map.find(constraint_type_str);
-
-  //       if (constraint_iterator != constraint_type_map.end())
-  //       {
-  //         auto constraint_value_list = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["value"];
-  //         constraint_type constraint_type_ = constraint_iterator->second;
-  //         switch (constraint_type_)
-  //         {
-  //         case POSITION_XYZ:
-  //           for (int k = 0; k < 3; k++)
-  //           {
-  //             std::string constraint_str = constraint_value_list[k].as<std::string>("");
-  //             operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["operator"][k].as<std::string>();
-  //             auto operator_iterator = operator_type_map.find(operator_type_str);
-  //             double constraint_value = constraint_value_list[k].as<double>();
-  //             if (operator_iterator != operator_type_map.end())
-  //             {
-  //               operator_type_ = operator_iterator->second;
-  //               switch (operator_type_)
-  //               {
-  //               case GREATER_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && measured_lin_pos_x_axis_data < constraint_value)
-  //                   {
-  //                     lin_pos_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1 && measured_lin_pos_y_axis_data < constraint_value)
-  //                   {
-  //                     lin_pos_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2 && measured_lin_pos_z_axis_data < constraint_value)
-  //                   {
-  //                     lin_pos_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-                  
-  //               case LESS_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && measured_lin_pos_x_axis_data > constraint_value)
-  //                   {
-  //                     lin_pos_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1 && measured_lin_pos_y_axis_data > constraint_value)
-  //                   {
-  //                     lin_pos_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2 && measured_lin_pos_z_axis_data > constraint_value)
-  //                   {
-  //                     lin_pos_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               case EQUAL:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0)
-  //                   {
-  //                     lin_pos_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1)
-  //                   {
-  //                     lin_pos_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2)
-  //                   {
-  //                     lin_pos_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               default:
-  //                 break;
-  //               }
-  //             }
-  //             else
-  //             {
-  //               std::cout << "[get_setpoints_from_motion_specification] Operator type not found" << std::endl;
-  //               flag = 1; // stop the execution
-  //             }
-  //           }
-  //           break;
-
-  //         case VELOCITY_XYZ:
-  //           for (int k = 0; k < 3; k++)
-  //           {
-  //             std::string constraint_str = constraint_value_list[k].as<std::string>("");
-  //             operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["operator"][k].as<std::string>();
-  //             auto operator_iterator = operator_type_map.find(operator_type_str);
-  //             double constraint_value = constraint_value_list[k].as<double>();
-  //             if (operator_iterator != operator_type_map.end())
-  //             {
-  //               operator_type_ = operator_iterator->second;
-  //               switch (operator_type_)
-  //               {
-  //               case GREATER_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && measured_lin_vel_x_axis_data < constraint_value)
-  //                   {
-  //                     lin_vel_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1 && measured_lin_vel_y_axis_data < constraint_value)
-  //                   {
-  //                     lin_vel_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2 && measured_lin_vel_z_axis_data < constraint_value)
-  //                   {
-  //                     lin_vel_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-  //               case LESS_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && measured_lin_vel_x_axis_data > constraint_value)
-  //                   {
-  //                     lin_vel_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1 && measured_lin_vel_y_axis_data > constraint_value)
-  //                   {
-  //                     lin_vel_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2 && measured_lin_vel_z_axis_data > constraint_value)
-  //                   {
-  //                     lin_vel_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               case EQUAL:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0)
-  //                   {
-  //                     lin_vel_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1)
-  //                   {
-  //                     lin_vel_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2)
-  //                   {
-  //                     lin_vel_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-  //               default:
-  //                 break;
-  //               }
-  //             }
-  //             else
-  //             {
-  //               std::cout << "[get_setpoints_from_motion_specification] Operator type not found" << std::endl;
-  //               flag = 1; // stop the execution
-  //             }
-  //           }
-  //           break;
-
-  //         case FORCE_XYZ:
-  //           for (int k = 0; k < 3; k++)
-  //           {
-  //             std::string constraint_str = constraint_value_list[k].as<std::string>("");
-  //             operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["operator"][k].as<std::string>();
-  //             auto operator_iterator = operator_type_map.find(operator_type_str);
-  //             double constraint_value = constraint_value_list[k].as<double>();
-  //             if (operator_iterator != operator_type_map.end())
-  //             {
-  //               operator_type_ = operator_iterator->second;
-  //               switch (operator_type_)
-  //               {
-  //               case GREATER_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && force_to_apply_x_axis < constraint_value)
-  //                   {
-  //                     force_to_apply_x_axis = constraint_value;
-  //                   }
-  //                   else if (k == 1 && force_to_apply_y_axis < constraint_value)
-  //                   {
-  //                     force_to_apply_y_axis = constraint_value;
-  //                   }
-  //                   else if (k == 2 && force_to_apply_z_axis < constraint_value)
-  //                   {
-  //                     force_to_apply_z_axis = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               case LESS_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && force_to_apply_x_axis > constraint_value)
-  //                   {
-  //                     force_to_apply_x_axis = constraint_value;
-  //                   }
-  //                   else if (k == 1 && force_to_apply_y_axis > constraint_value)
-  //                   {
-  //                     force_to_apply_y_axis = constraint_value;
-  //                   }
-  //                   else if (k == 2 && force_to_apply_z_axis > constraint_value)
-  //                   {
-  //                     force_to_apply_z_axis = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               case EQUAL:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0)
-  //                   {
-  //                     force_to_apply_x_axis = constraint_value;
-  //                   }
-  //                   else if (k == 1)
-  //                   {
-  //                     force_to_apply_y_axis = constraint_value;
-  //                   }
-  //                   else if (k == 2)
-  //                   {
-  //                     force_to_apply_z_axis = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               default:
-  //                 break;
-  //               }
-  //             }
-  //             else
-  //             {
-  //               std::cout << "[get_setpoints_from_motion_specification] Operator type not found" << std::endl;
-  //               flag = 1; // stop the execution
-  //             }
-  //           }
-  //           break;
-
-  //         // Note: only equal operator is considered for desired orientation
-  //         case ORIENTATION_QUATERNION:
-  //           for (int k = 0; k < 4; k++)
-  //           {
-  //             std::string constraint_str = constraint_value_list[k].as<std::string>("");
-  //             if (!(constraint_str == "None"))
-  //             {
-  //               desired_quat_FrameName[k] = constraint_value_list[k].as<double>();
-  //             }
-  //           }
-  //           break;
-
-  //         default:
-  //           break;
-  //         }
-  //       }
-  //       else
-  //       {
-  //         std::cout << "[get_setpoints_from_motion_specification] Constraint type not found" << std::endl;
-  //         flag = 1; // stop the execution
-  //       }
-  //     }
-  //   }
-  // }
-
-
   void MotionSpecificationActionServer::get_setpoints_from_motion_specification(
     double &lin_pos_sp_x_axis_data,
     double &lin_pos_sp_y_axis_data,
@@ -1054,113 +723,113 @@ namespace motion_specification_action
     std::array<double, 4> &desired_quat_FrameName,
     const YAML::Node &motion_specification_params_object,
     const std::string &arm_name)
-{
-  auto constraint_type_map = getConstraintTypeMap();
-  std::string condition_type_str = "PER_CONDITION";
-
-  if (per_condition_constraint_count > 0)
   {
-    for (int i = 1; i < per_condition_constraint_count + 1; i++)
+    auto constraint_type_map = getConstraintTypeMap();
+    std::string condition_type_str = "PER_CONDITION";
+
+    if (per_condition_constraint_count > 0)
     {
-      std::string constraint_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
-      auto constraint_iterator = constraint_type_map.find(constraint_type_str);
-
-      if (constraint_iterator != constraint_type_map.end())
+      for (int i = 1; i < per_condition_constraint_count + 1; i++)
       {
-        auto constraint_value_list = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["value"];
-        constraint_type constraint_type_ = constraint_iterator->second;
-        switch (constraint_type_)
+        std::string constraint_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
+        auto constraint_iterator = constraint_type_map.find(constraint_type_str);
+
+        if (constraint_iterator != constraint_type_map.end())
         {
-        case POSITION_XYZ:
-          for (int k = 0; k < 3; k++)
+          auto constraint_value_list = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["value"];
+          constraint_type constraint_type_ = constraint_iterator->second;
+          switch (constraint_type_)
           {
-            std::string constraint_str = constraint_value_list[k].as<std::string>("");
-            if (!(constraint_str == "None"))
+          case POSITION_XYZ:
+            for (int k = 0; k < 3; k++)
             {
-              if (k == 0)
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
               {
-                lin_pos_sp_x_axis_data = constraint_value_list[k].as<double>();
-              }
-              else if (k == 1)
-              {
-                lin_pos_sp_y_axis_data = constraint_value_list[k].as<double>();
-              }
-              else if (k == 2)
-              {
-                lin_pos_sp_z_axis_data = constraint_value_list[k].as<double>();
+                if (k == 0)
+                {
+                  lin_pos_sp_x_axis_data = constraint_value_list[k].as<double>();
+                }
+                else if (k == 1)
+                {
+                  lin_pos_sp_y_axis_data = constraint_value_list[k].as<double>();
+                }
+                else if (k == 2)
+                {
+                  lin_pos_sp_z_axis_data = constraint_value_list[k].as<double>();
+                }
               }
             }
-          }
-          break;
+            break;
 
-        case VELOCITY_XYZ:
-          for (int k = 0; k < 3; k++)
-          {
-            std::string constraint_str = constraint_value_list[k].as<std::string>("");
-            if (!(constraint_str == "None"))
+          case VELOCITY_XYZ:
+            for (int k = 0; k < 3; k++)
             {
-              if (k == 0)
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
               {
-                lin_vel_sp_x_axis_data = constraint_value_list[k].as<double>();
-              }
-              else if (k == 1)
-              {
-                lin_vel_sp_y_axis_data = constraint_value_list[k].as<double>();
-              }
-              else if (k == 2)
-              {
-                lin_vel_sp_z_axis_data = constraint_value_list[k].as<double>();
+                if (k == 0)
+                {
+                  lin_vel_sp_x_axis_data = constraint_value_list[k].as<double>();
+                }
+                else if (k == 1)
+                {
+                  lin_vel_sp_y_axis_data = constraint_value_list[k].as<double>();
+                }
+                else if (k == 2)
+                {
+                  lin_vel_sp_z_axis_data = constraint_value_list[k].as<double>();
+                }
               }
             }
-          }
-          break;
+            break;
 
-        case FORCE_XYZ:
-          for (int k = 0; k < 3; k++)
-          {
-            std::string constraint_str = constraint_value_list[k].as<std::string>("");
-            if (!(constraint_str == "None"))
+          case FORCE_XYZ:
+            for (int k = 0; k < 3; k++)
             {
-              if (k == 0)
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
               {
-                force_to_apply_x_axis = constraint_value_list[k].as<double>();
-              }
-              else if (k == 1)
-              {
-                force_to_apply_y_axis = constraint_value_list[k].as<double>();
-              }
-              else if (k == 2)
-              {
-                force_to_apply_z_axis = constraint_value_list[k].as<double>();
+                if (k == 0)
+                {
+                  force_to_apply_x_axis = constraint_value_list[k].as<double>();
+                }
+                else if (k == 1)
+                {
+                  force_to_apply_y_axis = constraint_value_list[k].as<double>();
+                }
+                else if (k == 2)
+                {
+                  force_to_apply_z_axis = constraint_value_list[k].as<double>();
+                }
               }
             }
-          }
-          break;
+            break;
 
-        case ORIENTATION_QUATERNION:
-          for (int k = 0; k < 4; k++)
-          {
-            std::string constraint_str = constraint_value_list[k].as<std::string>("");
-            if (!(constraint_str == "None"))
-
+          case ORIENTATION_QUATERNION:
+            for (int k = 0; k < 4; k++)
             {
-              desired_quat_FrameName[k] = constraint_value_list[k].as<double>();
-            }
-          }
-          break;
+              std::string constraint_str = constraint_value_list[k].as<std::string>("");
+              if (!(constraint_str == "None"))
 
-        default:
-          break;
+              {
+                desired_quat_FrameName[k] = constraint_value_list[k].as<double>();
+              }
+            }
+            break;
+
+          default:
+            break;
+          }
         }
-      }
-      else
-      {
-        std::cout << "[get_setpoints_from_motion_specification] Constraint type not found" << std::endl;
-        flag = 1; // stop the execution
+        else
+        {
+          std::cout << "[get_setpoints_from_motion_specification] Constraint type not found" << std::endl;
+          flag = 1; // stop the execution
+        }
       }
     }
   }
-}
 
   void MotionSpecificationActionServer::get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
       const double &stiffness_lin_x_axis_data,
@@ -1195,7 +864,7 @@ namespace motion_specification_action
       double &apply_ee_torque_y_axis_data,
       double &apply_ee_torque_z_axis_data,
       KDL::Frame &desired_endEffPose_FrameName_arm,
-      const KDL::Frame &measured_endEffPose_FrameName_arm,
+      const KDL::Frame &measured_endEffPose_FrameName,
       const int &per_condition_constraint_count,
       KDL::Vector &angle_axis_diff_FrameName_arm,
       const YAML::Node &motion_specification_params_object,
@@ -1286,7 +955,7 @@ namespace motion_specification_action
 
           case ORIENTATION_QUATERNION:
             desired_endEffPose_FrameName_arm.M = KDL::Rotation::Quaternion(desired_quat_FrameName[0], desired_quat_FrameName[1], desired_quat_FrameName[2], desired_quat_FrameName[3]);
-            angle_axis_diff_FrameName_arm = KDL::diff(measured_endEffPose_FrameName_arm.M, desired_endEffPose_FrameName_arm.M);
+            angle_axis_diff_FrameName_arm = KDL::diff(measured_endEffPose_FrameName.M, desired_endEffPose_FrameName_arm.M);
             apply_ee_torque_x_axis_data = stiffness_roll_axis_data * angle_axis_diff_FrameName_arm(0);
             apply_ee_torque_y_axis_data = stiffness_pitch_axis_data * angle_axis_diff_FrameName_arm(1);
             apply_ee_torque_z_axis_data = stiffness_yaw_axis_data * angle_axis_diff_FrameName_arm(2);
@@ -1312,7 +981,6 @@ namespace motion_specification_action
     pre_condition_constraint_count = motion_specification_params_object[arm_name]["PRE_CONDITION"]["constraint_count"].as<int>();
     per_condition_constraint_count = motion_specification_params_object[arm_name]["PER_CONDITION"]["constraint_count"].as<int>();
     post_condition_constraint_count = motion_specification_params_object[arm_name]["POST_CONDITION"]["constraint_count"].as<int>();
-    prevail_condition_constraint_count = motion_specification_params_object[arm_name]["PREVAIL_CONDITION"]["constraint_count"].as<int>();
   }
 
   void MotionSpecificationActionServer::read_frame_name(const YAML::Node &motion_specification_params_object)
@@ -1400,6 +1068,7 @@ namespace motion_specification_action
     catch (const YAML::Exception &e)
     {
       RCLCPP_ERROR(this->get_logger(), "Error reading configuration parameters: %s", e.what());
+      configuration_file_read = false;
       return;
     }
 
@@ -1407,26 +1076,70 @@ namespace motion_specification_action
     configuration_file_read = true;
   }
 
+
+  void MotionSpecificationActionServer::get_transform_BL_wrt_desired_frame(
+      const std::string &frame_name,
+      KDL::Frame &BL_wrt_FrameName_frame,
+      geometry_msgs::msg::TransformStamped &transform_stamped,
+      std::chrono::duration<double> &transform_timeout_duration,
+      bool &transform_available)
+  {
+    auto start_time = std::chrono::high_resolution_clock::now();
+    auto current_time = std::chrono::high_resolution_clock::now();
+
+    while (current_time - start_time < transform_timeout_duration)
+    {
+      current_time = std::chrono::high_resolution_clock::now();
+      // Check if the transform is available
+      if (tf_buffer_->canTransform(frame_name, "base_link", tf2::TimePointZero))
+      {
+        try {
+          transform_stamped = tf_buffer_->lookupTransform(
+            frame_name,
+            "base_link",
+            tf2::TimePointZero);
+          transform_available = true;
+        } catch (const tf2::TransformException &ex) {
+            RCLCPP_WARN(this->get_logger(), "Transform failed: %s", ex.what());
+            transform_available = false;
+        }
+        if (transform_available)
+        {
+          break; // Exit the loop if the transform is available
+        }
+        // sleep for a short duration to allow the transform to be available
+        RCLCPP_INFO(this->get_logger(), "Waiting for transform from %s to base_link", frame_name.c_str());
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Spin the node to process incoming messages
+        rclcpp::spin_some(this->get_node_base_interface());
+      }
+    }
+    BL_wrt_FrameName_frame = tf2::transformToKDL(transform_stamped);
+
+    // print transform_stamped
+    std::cout << "Frame name: " << frame_name << std::endl;
+
+    const auto &t = transform_stamped.transform.translation;
+    // std::cout << "Translation: x=" << BL_wrt_FrameName_frame.p.x() << ", y=" << BL_wrt_FrameName_frame.p.y() << ", z=" << BL_wrt_FrameName_frame.p.z() << std::endl;
+    // std::cout << "Translation: x=" << t.x << ", y=" << t.y << ", z=" << t.z << std::endl;
+
+    const auto &r = transform_stamped.transform.rotation;
+    // std::cout << "Rotation: x=" << r.x << ", y=" << r.y << ", z=" << r.z << ", w=" << r.w << std::endl;
+  }
+
   void MotionSpecificationActionServer::control_loop()
   {
-    rclcpp::Rate loop_rate(1000); // Control loop at 1kHz
-    kinova_setup_communication(robot_to_control, kinova_arm_mediator);
-
-    while (!configuration_file_read && rclcpp::ok()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Small delay
-    }
-
-    auto previous_time = std::chrono::high_resolution_clock::now();
-
-    if (rclcpp::ok() && control_loop_active_ && flag == 0)
+    if (!torque_control_mode_set)
     {
+      RCLCPP_INFO(this->get_logger(), "Setting torque control mode");
       kinova_feedback(kinova_arm_mediator, jnt_positions, jnt_velocities,
         jnt_torques_read);
         
       get_end_effector_pose_and_twist(
           jnt_velocity, jnt_positions, jnt_velocities,
           measured_endEffPose_BL_arm, measured_endEffTwist_BL_arm,
-          measured_endEffPose_FrameName_arm, measured_endEffTwist_FrameName_arm,
+          measured_endEffPose_FrameName, measured_endEffTwist_FrameName_arm,
           fkSolverPos, fkSolverVel, BL_wrt_FrameName_frame);
 
       calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
@@ -1441,10 +1154,10 @@ namespace motion_specification_action
           rne_output_jnt_torques_vector_to_set_control_mode[i] =
               jnt_torques_cmd(i);
       }
-      kinova_arm_mediator.set_control_mode(control_mode::TORQUE, rne_output_jnt_torques_vector_to_set_control_mode.data());      
+      kinova_arm_mediator.set_control_mode(control_mode::TORQUE, rne_output_jnt_torques_vector_to_set_control_mode.data());
+      torque_control_mode_set = true;
     }
-
-    while (rclcpp::ok() && control_loop_active_ && flag == 0)
+    else
     {
       kinova_feedback(kinova_arm_mediator, jnt_positions, jnt_velocities,
         jnt_torques_read);
@@ -1452,32 +1165,51 @@ namespace motion_specification_action
       get_end_effector_pose_and_twist(
           jnt_velocity, jnt_positions, jnt_velocities,
           measured_endEffPose_BL_arm, measured_endEffTwist_BL_arm,
-          measured_endEffPose_FrameName_arm, measured_endEffTwist_FrameName_arm,
+          measured_endEffPose_FrameName, measured_endEffTwist_FrameName_arm,
           fkSolverPos, fkSolverVel, BL_wrt_FrameName_frame);
 
-      measured_lin_pos_x_axis_data = measured_endEffPose_FrameName_arm.p.x();
+      measured_lin_pos_x_axis_data = measured_endEffPose_FrameName.p.x();
       measured_lin_vel_x_axis_data = measured_endEffTwist_FrameName_arm.GetTwist().vel.x();
-      measured_lin_pos_y_axis_data = measured_endEffPose_FrameName_arm.p.y();
+      measured_lin_pos_y_axis_data = measured_endEffPose_FrameName.p.y();
       measured_lin_vel_y_axis_data = measured_endEffTwist_FrameName_arm.GetTwist().vel.y();
-      measured_lin_pos_z_axis_data = measured_endEffPose_FrameName_arm.p.z();
+      measured_lin_pos_z_axis_data = measured_endEffPose_FrameName.p.z();
       measured_lin_vel_z_axis_data = measured_endEffTwist_FrameName_arm.GetTwist().vel.z();
-      measured_endEffPose_FrameName_arm.M.GetQuaternion(measured_quat_FrameName[0], measured_quat_FrameName[1], measured_quat_FrameName[2], measured_quat_FrameName[3]);
-      measured_endEffPose_FrameName_arm.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
+      measured_endEffPose_FrameName.M.GetQuaternion(measured_quat_FrameName[0], measured_quat_FrameName[1], measured_quat_FrameName[2], measured_quat_FrameName[3]);
+      measured_endEffPose_FrameName.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
 
-      auto current_time = std::chrono::high_resolution_clock::now();
-      auto time_since_last_publish = std::chrono::duration<double>(current_time-previous_time);
-      if (time_since_last_publish.count() > state_publish_time_step)
+      // check if any motion specification satisfies pre condition
+      if (!pre_condition_satisfied)
       {
-        publish_joint_states(jnt_positions);
-        publish_ee_pose(measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data, measured_quat_FrameName, frame_name);
-      };
+        check_pre_or_post_condition_satisfaction(
+            measured_lin_pos_x_axis_data,
+            measured_lin_pos_y_axis_data,
+            measured_lin_pos_z_axis_data,
+            measured_roll_data,
+            measured_pitch_data,
+            measured_yaw_data,
+            measured_lin_vel_x_axis_data,
+            measured_lin_vel_y_axis_data,
+            measured_lin_vel_z_axis_data,
+            linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
+            pre_condition_constraint_count,
+            constraint_type_str,
+            arm_name,
+            pre_condition_satisfied,
+            motion_specification_params_object,
+            condition_type::PRE_CONDITION);
 
-      if (goal_accepted_and_executing)
-      {
-        // check if any motion specification satisfies pre condition
-        if (!pre_condition_satisfied)
+        if (pre_condition_satisfied)
         {
-          check_pre_or_post_or_prevail_condition_satisfaction(
+          std::cout << "Pre condition satisfied. Now running controller to achieve per-condition until post-condition is satisfied." << std::endl;
+        }
+      }
+
+      if (pre_condition_satisfied)
+      {
+        // check if the motion specification satisfies post condition
+        if (!post_condition_satisfied)
+        {
+          check_pre_or_post_condition_satisfaction(
               measured_lin_pos_x_axis_data,
               measured_lin_pos_y_axis_data,
               measured_lin_pos_z_axis_data,
@@ -1488,144 +1220,90 @@ namespace motion_specification_action
               measured_lin_vel_y_axis_data,
               measured_lin_vel_z_axis_data,
               linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
-              pre_condition_constraint_count,
+              post_condition_constraint_count,
               constraint_type_str,
               arm_name,
-              pre_condition_satisfied,
+              post_condition_satisfied,
               motion_specification_params_object,
-              condition_type::PRE_CONDITION);
-
-          if (pre_condition_satisfied)
-          {
-            std::cout << "Pre condition satisfied. Now running controller to achieve per-condition until post-condition is satisfied." << std::endl;
-          }
+              condition_type::POST_CONDITION);
         }
 
-        if (pre_condition_satisfied)
+        if (post_condition_satisfied)
         {
-          // check if the motion specification satisfies post condition
-          if (!post_condition_satisfied)
+          if (!switch_to_joint_impendance_control)
           {
-            check_pre_or_post_or_prevail_condition_satisfaction(
-                measured_lin_pos_x_axis_data,
-                measured_lin_pos_y_axis_data,
-                measured_lin_pos_z_axis_data,
-                measured_roll_data,
-                measured_pitch_data,
-                measured_yaw_data,
-                measured_lin_vel_x_axis_data,
-                measured_lin_vel_y_axis_data,
-                measured_lin_vel_z_axis_data,
-                linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
-                post_condition_constraint_count,
-                constraint_type_str,
-                arm_name,
-                post_condition_satisfied,
-                motion_specification_params_object,
-                condition_type::POST_CONDITION);
-
-            check_pre_or_post_or_prevail_condition_satisfaction(
-                measured_lin_pos_x_axis_data,
-                measured_lin_pos_y_axis_data,
-                measured_lin_pos_z_axis_data,
-                measured_roll_data,
-                measured_pitch_data,
-                measured_yaw_data,
-                measured_lin_vel_x_axis_data,
-                measured_lin_vel_y_axis_data,
-                measured_lin_vel_z_axis_data,
-                linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
-                prevail_condition_constraint_count,
-                constraint_type_str,
-                arm_name,
-                prevail_condition_satisfied,
-                motion_specification_params_object,
-                condition_type::PREVAIL_CONDITION);
-          }
-
-          if (post_condition_satisfied)
-          {
-            if (!switch_to_joint_impendance_control)
-            {
-              std::cout << "Post condition satisfied. Switching to impedance control mode." << std::endl;
-              switch_to_joint_impendance_control = true;
-            }
-          }
-          else if (!prevail_condition_satisfied)
-          {
-            std::cout << "Prevail condition is not satisfied. Motion specification execution unsuccessful. Switching to impedance control mode." << std::endl;
-            motion_unsuccessful = true;
+            std::cout << "Post condition satisfied. Switching to impedance control mode." << std::endl;
             switch_to_joint_impendance_control = true;
           }
-          else
-          {
-            get_setpoints_from_motion_specification(
-                // measured_lin_pos_x_axis_data,
-                // measured_lin_pos_y_axis_data,
-                // measured_lin_pos_z_axis_data,
-                // measured_lin_vel_x_axis_data,
-                // measured_lin_vel_y_axis_data,
-                // measured_lin_vel_z_axis_data,
-                // measured_roll_data,
-                // measured_pitch_data,
-                // measured_yaw_data,
-                lin_pos_sp_x_axis_data,
-                lin_pos_sp_y_axis_data,
-                lin_pos_sp_z_axis_data,
-                lin_vel_sp_x_axis_data,
-                lin_vel_sp_y_axis_data,
-                lin_vel_sp_z_axis_data,
-                force_to_apply_x_axis,
-                force_to_apply_y_axis,
-                force_to_apply_z_axis,
-                per_condition_constraint_count,
-                desired_quat_FrameName,
-                motion_specification_params_object,
-                arm_name);
+        }
+        else
+        {
+          get_setpoints_from_motion_specification(
+              // measured_lin_pos_x_axis_data,
+              // measured_lin_pos_y_axis_data,
+              // measured_lin_pos_z_axis_data,
+              // measured_lin_vel_x_axis_data,
+              // measured_lin_vel_y_axis_data,
+              // measured_lin_vel_z_axis_data,
+              // measured_roll_data,
+              // measured_pitch_data,
+              // measured_yaw_data,
+              lin_pos_sp_x_axis_data,
+              lin_pos_sp_y_axis_data,
+              lin_pos_sp_z_axis_data,
+              lin_vel_sp_x_axis_data,
+              lin_vel_sp_y_axis_data,
+              lin_vel_sp_z_axis_data,
+              force_to_apply_x_axis,
+              force_to_apply_y_axis,
+              force_to_apply_z_axis,
+              per_condition_constraint_count,
+              desired_quat_FrameName,
+              motion_specification_params_object,
+              arm_name);
 
-            get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
-                stiffness_lin_x_axis_data,
-                stiffness_lin_y_axis_data,
-                stiffness_lin_z_axis_data,
-                damping_lin_x_axis_data,
-                damping_lin_y_axis_data,
-                damping_lin_z_axis_data,
-                stiffness_roll_axis_data,
-                stiffness_pitch_axis_data,
-                stiffness_yaw_axis_data,
-                measured_lin_pos_x_axis_data,
-                measured_lin_pos_y_axis_data,
-                measured_lin_pos_z_axis_data,
-                measured_lin_vel_x_axis_data,
-                measured_lin_vel_y_axis_data,
-                measured_lin_vel_z_axis_data,
-                lin_pos_sp_x_axis_data,
-                lin_pos_sp_y_axis_data,
-                lin_pos_sp_z_axis_data,
-                lin_vel_sp_x_axis_data,
-                lin_vel_sp_y_axis_data,
-                lin_vel_sp_z_axis_data,
-                force_to_apply_x_axis,
-                force_to_apply_y_axis,
-                force_to_apply_z_axis,
-                desired_quat_FrameName,
-                apply_ee_force_x_axis_data,
-                apply_ee_force_y_axis_data,
-                apply_ee_force_z_axis_data,
-                apply_ee_torque_x_axis_data,
-                apply_ee_torque_y_axis_data,
-                apply_ee_torque_z_axis_data,
-                desired_endEffPose_FrameName_arm,
-                measured_endEffPose_FrameName_arm,
-                per_condition_constraint_count,
-                angle_axis_diff_FrameName_arm,
-                motion_specification_params_object,
-                arm_name);
-          }
+          get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
+              stiffness_lin_x_axis_data,
+              stiffness_lin_y_axis_data,
+              stiffness_lin_z_axis_data,
+              damping_lin_x_axis_data,
+              damping_lin_y_axis_data,
+              damping_lin_z_axis_data,
+              stiffness_roll_axis_data,
+              stiffness_pitch_axis_data,
+              stiffness_yaw_axis_data,
+              measured_lin_pos_x_axis_data,
+              measured_lin_pos_y_axis_data,
+              measured_lin_pos_z_axis_data,
+              measured_lin_vel_x_axis_data,
+              measured_lin_vel_y_axis_data,
+              measured_lin_vel_z_axis_data,
+              lin_pos_sp_x_axis_data,
+              lin_pos_sp_y_axis_data,
+              lin_pos_sp_z_axis_data,
+              lin_vel_sp_x_axis_data,
+              lin_vel_sp_y_axis_data,
+              lin_vel_sp_z_axis_data,
+              force_to_apply_x_axis,
+              force_to_apply_y_axis,
+              force_to_apply_z_axis,
+              desired_quat_FrameName,
+              apply_ee_force_x_axis_data,
+              apply_ee_force_y_axis_data,
+              apply_ee_force_z_axis_data,
+              apply_ee_torque_x_axis_data,
+              apply_ee_torque_y_axis_data,
+              apply_ee_torque_z_axis_data,
+              desired_endEffPose_FrameName_arm,
+              measured_endEffPose_FrameName,
+              per_condition_constraint_count,
+              angle_axis_diff_FrameName_arm,
+              motion_specification_params_object,
+              arm_name);
         }
       }
 
-      if (switch_to_joint_impendance_control || !goal_accepted_and_executing)
+      if (switch_to_joint_impendance_control)
       {
         if (!jnt_impedance_setpoint_is_set)
         {
@@ -1684,8 +1362,8 @@ namespace motion_specification_action
         };
 
         // LinkWrenches are calculated in BL frame. As RNE solver requires them in EE frame, the wrenches are transformed from BL to EE frame
-        linkWrenches_EE[NUM_LINKS - 1].force = measured_endEffPose_FrameName_arm.M.Inverse() * linkWrenches_FrameName[NUM_LINKS - 1].force;
-        linkWrenches_EE[NUM_LINKS - 1].torque = measured_endEffPose_FrameName_arm.M.Inverse() * linkWrenches_FrameName[NUM_LINKS - 1].torque;
+        linkWrenches_EE[NUM_LINKS - 1].force = measured_endEffPose_FrameName.M.Inverse() * linkWrenches_FrameName[NUM_LINKS - 1].force;
+        linkWrenches_EE[NUM_LINKS - 1].torque = measured_endEffPose_FrameName.M.Inverse() * linkWrenches_FrameName[NUM_LINKS - 1].torque;
 
         calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                      jnt_velocity, jd_qd, xdd,
@@ -1714,82 +1392,20 @@ namespace motion_specification_action
       apply_ee_torque_x_axis_data = 0.0;
       apply_ee_torque_y_axis_data = 0.0;
       apply_ee_torque_z_axis_data = 0.0;
-
-      // Example: Check system state
-      if (!control_loop_active_)
-      {
-        break; // Exit the loop gracefully if the node is shutting down
-      }
-      if (flag==1)
-      {
-        std::cout << "Error!! exiting the control loop." << std::endl;
-      }
-      loop_rate.sleep(); // Maintain the loop at 1kHz
     }
-
-    kinova_arm_mediator.set_control_mode(control_mode::POSITION, nullptr);
-  }
-
-  void MotionSpecificationActionServer::get_transform_BL_wrt_desired_frame(
-      const std::string &frame_name,
-      KDL::Frame &BL_wrt_FrameName_frame,
-      geometry_msgs::msg::TransformStamped &transform_stamped,
-      std::chrono::duration<double> &transform_timeout_duration,
-      bool &transform_available)
-  {
-    auto start_time = std::chrono::high_resolution_clock::now();
-    auto current_time = std::chrono::high_resolution_clock::now();
-
-    while (current_time - start_time < transform_timeout_duration)
-    {
-      current_time = std::chrono::high_resolution_clock::now();
-      // Check if the transform is available
-      if (tf_buffer_->canTransform(frame_name, "base_link", tf2::TimePointZero))
-      {
-        try {
-          transform_stamped = tf_buffer_->lookupTransform(
-            frame_name,
-            "base_link",
-            tf2::TimePointZero);
-          transform_available = true;
-        } catch (const tf2::TransformException &ex) {
-            RCLCPP_WARN(this->get_logger(), "Transform failed: %s", ex.what());
-            transform_available = false;
-        }
-        if (transform_available)
-        {
-          break; // Exit the loop if the transform is available
-        }
-        // sleep for a short duration to allow the transform to be available
-        RCLCPP_INFO(this->get_logger(), "Waiting for transform from %s to base_link", frame_name.c_str());
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Spin the node to process incoming messages
-        rclcpp::spin_some(this->get_node_base_interface());
-      }
-    }
-    BL_wrt_FrameName_frame = tf2::transformToKDL(transform_stamped);
-
-    // print transform_stamped
-    std::cout << "Frame name: " << frame_name << std::endl;
-
-    const auto &t = transform_stamped.transform.translation;
-    std::cout << "Translation: x=" << t.x << ", y=" << t.y << ", z=" << t.z << std::endl;
-
-    const auto &r = transform_stamped.transform.rotation;
-    std::cout << "Rotation: x=" << r.x << ", y=" << r.y << ", z=" << r.z << ", w=" << r.w << std::endl;
   }
 
   void MotionSpecificationActionServer::execute(const std::shared_ptr<GoalHandleMotionSpecification> goal_handle)
   {
     RCLCPP_INFO(this->get_logger(), "Executing goal");
-    rclcpp::Rate loop_rate(1);
+    rclcpp::Rate loop_rate(1000);
     goal_accepted_and_executing = false;
     const auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<MotionSpecification::Feedback>();
     auto &tcp_wrt_FrameName = feedback->tcp_position;
     tcp_wrt_FrameName = {0.0, 0.0, 0.0};
     auto result = std::make_shared<MotionSpecification::Result>();
+    auto previous_time = std::chrono::high_resolution_clock::now();
 
     try
     {
@@ -1818,7 +1434,7 @@ namespace motion_specification_action
 
     get_transform_BL_wrt_desired_frame(
         frame_name,
-        measured_endEffPose_FrameName_arm,
+        BL_wrt_FrameName_frame,
         transform_stamped,
         transform_timeout_duration,
         transform_available);
@@ -1830,38 +1446,80 @@ namespace motion_specification_action
     // print string message on goal
     while (goal_accepted_and_executing && rclcpp::ok())
     {
-
-      tcp_wrt_FrameName = {measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data};
-      goal_handle->publish_feedback(feedback);
-
-      if (goal_handle->is_canceling() || motion_unsuccessful)
+      if (!communication_setup_done)
       {
+        RCLCPP_INFO(this->get_logger(), "Setting up communication with robot");
+        kinova_setup_communication(robot_to_control, kinova_arm_mediator, communication_setup_done);
+      }
+
+      if (!configuration_file_read) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Small delay
+        RCLCPP_INFO(this->get_logger(), "Waiting for configuration file to be read...");
+      }
+      
+      if (communication_setup_done && configuration_file_read)
+      {
+        if (flag == 0)
+        {
+          control_loop();
+        }
+        else
+        {
+          RCLCPP_ERROR(this->get_logger(), "Error in motion specification. Setting to position control.");
+          kinova_arm_mediator.set_control_mode(control_mode::POSITION, nullptr);
+          torque_control_mode_set = false;
+          result->motion_successful = false;
+          goal_handle->abort(result);
+          return;
+        }
+
+        auto current_time = std::chrono::high_resolution_clock::now();
+        auto time_since_last_publish = std::chrono::duration<double>(current_time-previous_time);
+        if (time_since_last_publish.count() > state_publish_time_step)
+        {
+          publish_joint_states(jnt_positions);
+          publish_ee_pose(measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data, measured_quat_FrameName, frame_name);
+
+          tcp_wrt_FrameName = {measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data};
+          goal_handle->publish_feedback(feedback);
+          previous_time = current_time;
+        };      
+      };
+
+
+      if (goal_handle->is_canceling())
+      {
+        RCLCPP_INFO(this->get_logger(), "Goal canceled. Setting to position control.");
+        kinova_arm_mediator.set_control_mode(control_mode::POSITION, nullptr);
+        torque_control_mode_set = false;
         result->motion_successful = false;
         goal_handle->canceled(result);
         RCLCPP_INFO(this->get_logger(), "Goal canceled");
         goal_accepted_and_executing = false;
-        motion_unsuccessful = true;
         return;
-      }
+      };
       if (post_condition_satisfied)
       {
+        RCLCPP_INFO(this->get_logger(), "Post condition satisfied. Setting to position control.");
+        kinova_arm_mediator.set_control_mode(control_mode::POSITION, nullptr);
+        torque_control_mode_set = false;
         goal_accepted_and_executing = false;
         result->motion_successful = true;
         goal_handle->succeed(result);
         RCLCPP_INFO(this->get_logger(), "Goal succeeded");
         return;
-      }
-
+      };
       loop_rate.sleep();
     }
 
     if (!rclcpp::ok())
     {
+      RCLCPP_ERROR(this->get_logger(), "ROS node terminated. Setting to position control.");
+      kinova_arm_mediator.set_control_mode(control_mode::POSITION, nullptr);
       result->motion_successful = false;
       goal_handle->canceled(result);
       RCLCPP_INFO(this->get_logger(), "Goal canceled as ros node is terminated");
       goal_accepted_and_executing = false;
-      motion_unsuccessful = true;
       return;
     }
   }
