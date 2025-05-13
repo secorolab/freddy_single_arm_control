@@ -5,6 +5,7 @@
 #include <memory>
 #include <thread>
 #include <csignal>
+#include <random>
 
 #include <motion_specification_interfaces/action/motion_specification.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -14,6 +15,7 @@
 #include <rclcpp_components/register_node_macro.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <tf2_ros/transform_listener.h>
+#include "tf2_ros/static_transform_broadcaster.h"
 #include <tf2_ros/buffer.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_kdl/tf2_kdl.hpp>
@@ -100,6 +102,7 @@ namespace motion_specification_action
     std::vector<std::string> joint_names_;
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_;
     geometry_msgs::msg::TransformStamped transform_stamped;
     std::chrono::duration<double> transform_timeout_duration;
     bool transform_available;
@@ -138,6 +141,8 @@ namespace motion_specification_action
     std::string arm_name;
 
     std::string frame_name;
+    std::string arm_base_link_name;
+    std::string robot_base_link_name;
     int pre_condition_constraint_count;
     int per_condition_constraint_count;
     int post_condition_constraint_count;
@@ -176,10 +181,10 @@ namespace motion_specification_action
     KDL::Frame BL_wrt_GF_frame;
 
     // end effector Pose
-    KDL::Frame measured_endEffPose_BL_arm;
-    KDL::Frame measured_endEffPose_FrameName_arm;
-    KDL::FrameVel measured_endEffTwist_BL_arm;
-    KDL::FrameVel measured_endEffTwist_FrameName_arm;
+    KDL::Frame measured_endEffPose_BL;
+    KDL::Frame measured_endEffPose_FrameName;
+    KDL::FrameVel measured_endEffTwist_BL;
+    KDL::FrameVel measured_endEffTwist_FrameName;
 
     // Joint variables
     KDL::JntArray jnt_positions;
@@ -272,8 +277,8 @@ namespace motion_specification_action
     double force_to_apply_y_axis;
     double force_to_apply_z_axis;
 
-    KDL::Vector angle_axis_diff_FrameName_arm;
-    KDL::Frame desired_endEffPose_FrameName_arm;
+    KDL::Vector angle_axis_diff_FrameName;
+    KDL::Frame desired_endEffPose_FrameName;
     std::array<double, 4> desired_quat_FrameName;
 
     // initialise multi-dimensional array to store data
@@ -296,7 +301,6 @@ namespace motion_specification_action
     YAML::Node motion_specification_params_object;
 
     void publish_joint_states(KDL::JntArray& jnt_positions);
-    void lookup_transformation(const std::string &target_frame, const std::string &source_frame, geometry_msgs::msg::TransformStamped &transform);
     void publish_ee_pose(const double &measured_lin_pos_x_axis_data, const double &measured_lin_pos_y_axis_data, const double &measured_lin_pos_z_axis_data, const std::array<double, 4> &measured_quat_FrameName, const std::string &frame_name);
     void read_config_file(const YAML::Node &config_file_object);
     void parse_urdf_file(const std::string &urdf_file_path, KDL::Tree &kinematic_tree, KDL::Chain &chain_urdf, unsigned int &NUM_LINKS);
@@ -316,6 +320,10 @@ namespace motion_specification_action
 
     void read_ms_conditions_count(const YAML::Node &motion_specification_params_object);
     void read_frame_name(const YAML::Node &motion_specification_params_object);
+    void publish_static_transform_from_GF_to_BL(
+      const std::string &robot_base_link_name, 
+      const std::string &arm_base_link_name, 
+      KDL::Frame &BL_wrt_GF_frame);
     void get_transform_BL_wrt_desired_frame(
       const std::string &frame_name,
       KDL::Frame &BL_wrt_FrameName_frame,
@@ -466,10 +474,10 @@ namespace motion_specification_action
         double &apply_ee_torque_x_axis_data,
         double &apply_ee_torque_y_axis_data,
         double &apply_ee_torque_z_axis_data,
-        KDL::Frame &desired_endEffPose_FrameName_arm,
-        const KDL::Frame &measured_endEffPose_FrameName_arm,
+        KDL::Frame &desired_endEffPose_FrameName,
+        const KDL::Frame &measured_endEffPose_FrameName,
         const int &per_condition_constraint_count,
-        KDL::Vector &angle_axis_diff_FrameName_arm,
+        KDL::Vector &angle_axis_diff_FrameName,
         const YAML::Node &motion_specification_params_object,
         const std::string &arm_name);
 
