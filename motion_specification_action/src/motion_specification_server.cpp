@@ -72,6 +72,11 @@ namespace motion_specification_action
         post_condition_satisfied(false),
         prevail_condition_satisfied(false),
         jnt_impedance_setpoint_is_set(false),
+        reach_pre_configuration_joint_angles(false),
+        pre_configuration_joint_angles_reached(false),
+        pre_configuration_joint_angles_tolerance_radians(0.1),
+        pre_configuration_max_deviation_radians(0.0),
+        pre_configuration_joint_angles_radians{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
         state_publish_time_step(0.1),
         rne_output_jnt_torques_vector_to_set_control_mode(kinova_constants::NUMBER_OF_JOINTS, 0.0),
         arm_name("kinova_gen3_2_right"),
@@ -178,14 +183,6 @@ namespace motion_specification_action
     }
   }
 
-  // Define all the functions related to the control loop
-
-  // void MotionSpecificationActionServer::handle_signal(int sig)
-  // {
-  //     flag = 1;
-  //     std::cout << "Received signal: " << sig << std::endl;
-  // }
-
   void MotionSpecificationActionServer::publish_static_transform_from_GF_to_BL(const std::string &robot_base_link_name, const std::string &arm_base_link_name, KDL::Frame &BL_wrt_GF_frame)
   {
     geometry_msgs::msg::TransformStamped static_transform;
@@ -256,6 +253,7 @@ namespace motion_specification_action
     pre_condition_satisfied = false;
     post_condition_satisfied = false;
     prevail_condition_satisfied = false;
+    pre_configuration_joint_angles_reached = false;
   }
 
   void MotionSpecificationActionServer::kinova_setup_communication(
@@ -749,308 +747,6 @@ namespace motion_specification_action
     }
   }
 
-  // void MotionSpecificationActionServer::get_setpoints_from_motion_specification(
-  //     double &measured_lin_pos_x_axis_data,
-  //     double &measured_lin_pos_y_axis_data,
-  //     double &measured_lin_pos_z_axis_data,
-  //     double &measured_lin_vel_x_axis_data,
-  //     double &measured_lin_vel_y_axis_data,
-  //     double &measured_lin_vel_z_axis_data,
-  //     double &measured_roll_data,
-  //     double &measured_pitch_data,
-  //     double &measured_yaw_data,
-  //     double &lin_pos_sp_x_axis_data,
-  //     double &lin_pos_sp_y_axis_data,
-  //     double &lin_pos_sp_z_axis_data,
-  //     double &lin_vel_sp_x_axis_data,
-  //     double &lin_vel_sp_y_axis_data,
-  //     double &lin_vel_sp_z_axis_data,
-  //     double &force_to_apply_x_axis,
-  //     double &force_to_apply_y_axis,
-  //     double &force_to_apply_z_axis,
-  //     const int &per_condition_constraint_count,
-  //     std::array<double, 4> &desired_quat_FrameName,
-  //     const YAML::Node &motion_specification_params_object,
-  //     const std::string &arm_name)
-  // {
-  //   // TODO: add an option to set the setpoint as measured data or as uncontrolled data
-  //   auto constraint_type_map = getConstraintTypeMap();
-  //   auto operator_type_map = getOperatorTypeMap();
-  //   std::string condition_type_str = "PER_CONDITION";
-  //   operator_type operator_type_;
-  //   std::string operator_type_str;
-
-  //   if (per_condition_constraint_count > 0)
-  //   {
-  //     for (int i = 1; i < per_condition_constraint_count + 1; i++)
-  //     {
-  //       std::string constraint_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
-  //       auto constraint_iterator = constraint_type_map.find(constraint_type_str);
-
-  //       if (constraint_iterator != constraint_type_map.end())
-  //       {
-  //         auto constraint_value_list = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["value"];
-  //         constraint_type constraint_type_ = constraint_iterator->second;
-  //         switch (constraint_type_)
-  //         {
-  //         case POSITION_XYZ:
-  //           for (int k = 0; k < 3; k++)
-  //           {
-  //             std::string constraint_str = constraint_value_list[k].as<std::string>("");
-  //             operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["operator"][k].as<std::string>();
-  //             auto operator_iterator = operator_type_map.find(operator_type_str);
-  //             double constraint_value = constraint_value_list[k].as<double>();
-  //             if (operator_iterator != operator_type_map.end())
-  //             {
-  //               operator_type_ = operator_iterator->second;
-  //               switch (operator_type_)
-  //               {
-  //               case GREATER_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && measured_lin_pos_x_axis_data < constraint_value)
-  //                   {
-  //                     lin_pos_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1 && measured_lin_pos_y_axis_data < constraint_value)
-  //                   {
-  //                     lin_pos_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2 && measured_lin_pos_z_axis_data < constraint_value)
-  //                   {
-  //                     lin_pos_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-                  
-  //               case LESS_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && measured_lin_pos_x_axis_data > constraint_value)
-  //                   {
-  //                     lin_pos_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1 && measured_lin_pos_y_axis_data > constraint_value)
-  //                   {
-  //                     lin_pos_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2 && measured_lin_pos_z_axis_data > constraint_value)
-  //                   {
-  //                     lin_pos_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               case EQUAL:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0)
-  //                   {
-  //                     lin_pos_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1)
-  //                   {
-  //                     lin_pos_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2)
-  //                   {
-  //                     lin_pos_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               default:
-  //                 break;
-  //               }
-  //             }
-  //             else
-  //             {
-  //               std::cout << "[get_setpoints_from_motion_specification] Operator type not found" << std::endl;
-  //               flag = 1; // stop the execution
-  //             }
-  //           }
-  //           break;
-
-  //         case VELOCITY_XYZ:
-  //           for (int k = 0; k < 3; k++)
-  //           {
-  //             std::string constraint_str = constraint_value_list[k].as<std::string>("");
-  //             operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["operator"][k].as<std::string>();
-  //             auto operator_iterator = operator_type_map.find(operator_type_str);
-  //             double constraint_value = constraint_value_list[k].as<double>();
-  //             if (operator_iterator != operator_type_map.end())
-  //             {
-  //               operator_type_ = operator_iterator->second;
-  //               switch (operator_type_)
-  //               {
-  //               case GREATER_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && measured_lin_vel_x_axis_data < constraint_value)
-  //                   {
-  //                     lin_vel_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1 && measured_lin_vel_y_axis_data < constraint_value)
-  //                   {
-  //                     lin_vel_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2 && measured_lin_vel_z_axis_data < constraint_value)
-  //                   {
-  //                     lin_vel_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-  //               case LESS_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && measured_lin_vel_x_axis_data > constraint_value)
-  //                   {
-  //                     lin_vel_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1 && measured_lin_vel_y_axis_data > constraint_value)
-  //                   {
-  //                     lin_vel_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2 && measured_lin_vel_z_axis_data > constraint_value)
-  //                   {
-  //                     lin_vel_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               case EQUAL:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0)
-  //                   {
-  //                     lin_vel_sp_x_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 1)
-  //                   {
-  //                     lin_vel_sp_y_axis_data = constraint_value;
-  //                   }
-  //                   else if (k == 2)
-  //                   {
-  //                     lin_vel_sp_z_axis_data = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-  //               default:
-  //                 break;
-  //               }
-  //             }
-  //             else
-  //             {
-  //               std::cout << "[get_setpoints_from_motion_specification] Operator type not found" << std::endl;
-  //               flag = 1; // stop the execution
-  //             }
-  //           }
-  //           break;
-
-  //         case FORCE_XYZ:
-  //           for (int k = 0; k < 3; k++)
-  //           {
-  //             std::string constraint_str = constraint_value_list[k].as<std::string>("");
-  //             operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["operator"][k].as<std::string>();
-  //             auto operator_iterator = operator_type_map.find(operator_type_str);
-  //             double constraint_value = constraint_value_list[k].as<double>();
-  //             if (operator_iterator != operator_type_map.end())
-  //             {
-  //               operator_type_ = operator_iterator->second;
-  //               switch (operator_type_)
-  //               {
-  //               case GREATER_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && force_to_apply_x_axis < constraint_value)
-  //                   {
-  //                     force_to_apply_x_axis = constraint_value;
-  //                   }
-  //                   else if (k == 1 && force_to_apply_y_axis < constraint_value)
-  //                   {
-  //                     force_to_apply_y_axis = constraint_value;
-  //                   }
-  //                   else if (k == 2 && force_to_apply_z_axis < constraint_value)
-  //                   {
-  //                     force_to_apply_z_axis = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               case LESS_THAN:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0 && force_to_apply_x_axis > constraint_value)
-  //                   {
-  //                     force_to_apply_x_axis = constraint_value;
-  //                   }
-  //                   else if (k == 1 && force_to_apply_y_axis > constraint_value)
-  //                   {
-  //                     force_to_apply_y_axis = constraint_value;
-  //                   }
-  //                   else if (k == 2 && force_to_apply_z_axis > constraint_value)
-  //                   {
-  //                     force_to_apply_z_axis = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               case EQUAL:
-  //                 if (!(constraint_str == "None"))
-  //                 {
-  //                   if (k == 0)
-  //                   {
-  //                     force_to_apply_x_axis = constraint_value;
-  //                   }
-  //                   else if (k == 1)
-  //                   {
-  //                     force_to_apply_y_axis = constraint_value;
-  //                   }
-  //                   else if (k == 2)
-  //                   {
-  //                     force_to_apply_z_axis = constraint_value;
-  //                   }
-  //                 }
-  //                 break;
-
-  //               default:
-  //                 break;
-  //               }
-  //             }
-  //             else
-  //             {
-  //               std::cout << "[get_setpoints_from_motion_specification] Operator type not found" << std::endl;
-  //               flag = 1; // stop the execution
-  //             }
-  //           }
-  //           break;
-
-  //         // Note: only equal operator is considered for desired orientation
-  //         case ORIENTATION_QUATERNION:
-  //           for (int k = 0; k < 4; k++)
-  //           {
-  //             std::string constraint_str = constraint_value_list[k].as<std::string>("");
-  //             if (!(constraint_str == "None"))
-  //             {
-  //               desired_quat_FrameName[k] = constraint_value_list[k].as<double>();
-  //             }
-  //           }
-  //           break;
-
-  //         default:
-  //           break;
-  //         }
-  //       }
-  //       else
-  //       {
-  //         std::cout << "[get_setpoints_from_motion_specification] Constraint type not found" << std::endl;
-  //         flag = 1; // stop the execution
-  //       }
-  //     }
-  //   }
-  // }
-
-
   void MotionSpecificationActionServer::get_setpoints_from_motion_specification(
     double &lin_pos_sp_x_axis_data,
     double &lin_pos_sp_y_axis_data,
@@ -1352,6 +1048,39 @@ namespace motion_specification_action
     }
   }
 
+  void MotionSpecificationActionServer::get_pre_configuration_joint_angles(
+      const std::string &arm_name,
+      const YAML::Node &motion_specification_params_object,
+      std::vector<double> &pre_configuration_joint_angles_radians,
+      double &pre_configuration_joint_angles_tolerance_radians,
+      bool &reach_pre_configuration_joint_angles,
+      KDL::JntArray &pre_configuration_jnt_positions_kdl_array)
+  {
+    try
+    {
+      pre_configuration_joint_angles_radians = motion_specification_params_object[arm_name]["pre_configuration_joint_angles_radians"].as<std::vector<double>>();
+      pre_configuration_joint_angles_tolerance_radians = motion_specification_params_object[arm_name]["pre_configuration_joint_angles_tolerance_radians"].as<double>();
+      reach_pre_configuration_joint_angles = motion_specification_params_object[arm_name]["reach_pre_configuration_joint_angles"].as<bool>();
+    }
+    catch (const YAML::Exception &e)
+    {
+      RCLCPP_ERROR(this->get_logger(), "Error reading pre-configuration joint angles: %s. Skipping reaching pre-configuration joint angles.", e.what());
+      return;
+    }
+    if (pre_configuration_joint_angles_radians.size() != kinova_constants::NUMBER_OF_JOINTS)
+    {
+      RCLCPP_ERROR(this->get_logger(), "Pre-configuration joint angles size does not match the number of joints. Skipping reaching pre-configuration joint angles.");
+      return;
+    }
+    
+    pre_configuration_jnt_positions_kdl_array = KDL::JntArray(kinova_constants::NUMBER_OF_JOINTS);
+    for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
+    {
+      pre_configuration_jnt_positions_kdl_array(i) = pre_configuration_joint_angles_radians[i];
+    }
+    RCLCPP_INFO(this->get_logger(), "Pre-configuration joint angles read successfully");
+  }
+
   void MotionSpecificationActionServer::read_config_file(const YAML::Node &config_file_object)
   {
     try
@@ -1457,7 +1186,6 @@ namespace motion_specification_action
 
     while (rclcpp::ok() && control_loop_active_ && flag == 0)
     {
-      // RCLCPP_INFO(this->get_logger(), "[control loop] BL_wrt_FrameName_frame.p.y(): %f", BL_wrt_FrameName_frame.p.y());
       kinova_feedback(kinova_arm_mediator, jnt_positions, jnt_velocities,
         jnt_torques_read);
         
@@ -1484,7 +1212,53 @@ namespace motion_specification_action
         publish_ee_pose(measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data, measured_quat_FrameName, frame_name);
       };
 
-      if (goal_accepted_and_executing)
+      // Helper lambda to normalize angle differences to [-pi, pi]
+      auto normalize_angle_diff = [](double diff) -> double {
+          if (diff > M_PI) return diff - 2 * M_PI;
+          if (diff < -M_PI) return diff + 2 * M_PI;
+          return diff;
+      };
+
+      if (goal_accepted_and_executing && reach_pre_configuration_joint_angles && !pre_configuration_joint_angles_reached)
+      {
+        for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; ++i)
+        {
+          jnt_angle_diff = normalize_angle_diff(pre_configuration_joint_angles_radians[i] - jnt_positions(i));
+          if (std::abs(jnt_angle_diff) > pre_configuration_max_deviation_radians)
+          {
+            std::cout << "[INFO] Pre-configuration check failed: joint " << i 
+                      << " deviates by " << jnt_angle_diff << " rad." << std::endl;
+            reach_pre_configuration_joint_angles = false;
+            break;
+          }
+        }
+
+        if (reach_pre_configuration_joint_angles)
+        {
+          calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
+                                      jnt_velocity, jd_qd, xdd,
+                                      xdd_minus_jd_qd, jnt_accelerations,
+                                      jnt_positions, jnt_velocities,
+                                      linkWrenches_zero, torques_gravity_compensation);
+
+          int jnt_angle_within_tolerance_cnt = 0;
+          for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
+          {
+            jnt_angle_diff = normalize_angle_diff(pre_configuration_joint_angles_radians[i] - jnt_positions(i));
+            if (std::abs(jnt_angle_diff) < pre_configuration_joint_angles_tolerance_radians)
+            {
+              ++jnt_angle_within_tolerance_cnt;
+            }
+            jnt_torques_cmd(i) = stiffness_joint_impedance_ctrl * jnt_angle_diff + torques_gravity_compensation(i);
+          }
+          if (jnt_angle_within_tolerance_cnt == kinova_constants::NUMBER_OF_JOINTS)
+          {
+            pre_configuration_joint_angles_reached = true;
+            std::cout << "Pre-configuration joint angles reached." << std::endl;
+          }
+        }
+      }
+      else if(goal_accepted_and_executing)
       {
         // check if any motion specification satisfies pre condition
         if (!pre_condition_satisfied)
@@ -1802,6 +1576,13 @@ namespace motion_specification_action
     {
       read_ms_conditions_count(motion_specification_params_object);
       read_frame_name(motion_specification_params_object);
+      get_pre_configuration_joint_angles(
+          arm_name,
+          motion_specification_params_object,
+          pre_configuration_joint_angles_radians,
+          pre_configuration_joint_angles_tolerance_radians,
+          reach_pre_configuration_joint_angles,
+          pre_configuration_jnt_positions_kdl_array);
     }
     catch (const YAML::Exception &e)
     {

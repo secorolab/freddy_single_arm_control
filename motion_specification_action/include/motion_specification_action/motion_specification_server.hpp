@@ -137,7 +137,11 @@ namespace motion_specification_action
     double STIFFNESS_GAIN_PITCH;
     double STIFFNESS_GAIN_YAW;
     double STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
-    // int MOTION_SPECIFICATION_READ;
+    double pre_configuration_joint_angles_tolerance_radians;
+    std::vector<double> pre_configuration_joint_angles_radians;
+    bool reach_pre_configuration_joint_angles;
+    bool pre_configuration_joint_angles_reached;
+    double pre_configuration_max_deviation_radians;
     std::string arm_name;
 
     std::string frame_name;
@@ -147,7 +151,6 @@ namespace motion_specification_action
     int per_condition_constraint_count;
     int post_condition_constraint_count;
     int prevail_condition_constraint_count;
-    // int motion_specification_read;
     int frequency_of_state_publish;
 
     std::vector<float> gravitational_acceleration; // Example values
@@ -188,6 +191,7 @@ namespace motion_specification_action
 
     // Joint variables
     KDL::JntArray jnt_positions;
+    KDL::JntArray pre_configuration_jnt_positions_kdl_array; // to set pre-configuration joint angles
     KDL::JntArray jnt_positions_setpoint;
     KDL::JntArray jnt_velocities; // has only joint velocities of all joints
     KDL::JntArray torques_gravity_compensation;
@@ -330,6 +334,13 @@ namespace motion_specification_action
       geometry_msgs::msg::TransformStamped &transform_stamped,
       std::chrono::duration<double> &transform_timeout_duration,
       bool &transform_available);
+    void get_pre_configuration_joint_angles(
+      const std::string &arm_name,
+      const YAML::Node &motion_specification_params_object,
+      std::vector<double> &pre_configuration_joint_angles_radians,
+      double &pre_configuration_joint_angles_tolerance_radians,
+      bool &reach_pre_configuration_joint_angles,
+      KDL::JntArray &pre_configuration_jnt_positions_kdl_array);
     // void handle_signal(int sig);
 
     void kinova_feedback(kinova_mediator &kinova_arm_mediator,
