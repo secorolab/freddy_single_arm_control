@@ -77,6 +77,13 @@ namespace motion_specification_action
         pre_configuration_joint_angles_tolerance_radians(0.1),
         pre_configuration_max_deviation_radians(0.0),
         pre_configuration_joint_angles_radians{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+        pre_configuration_joint_angle_0_rad(0.0),
+        pre_configuration_joint_angle_1_rad(0.0),
+        pre_configuration_joint_angle_2_rad(0.0),
+        pre_configuration_joint_angle_3_rad(0.0),
+        pre_configuration_joint_angle_4_rad(0.0),
+        pre_configuration_joint_angle_5_rad(0.0),
+        pre_configuration_joint_angle_6_rad(0.0),
         state_publish_time_step(0.1),
         rne_output_jnt_torques_vector_to_set_control_mode(kinova_constants::NUMBER_OF_JOINTS, 0.0),
         arm_name("kinova_gen3_2_right"),
@@ -254,6 +261,7 @@ namespace motion_specification_action
     post_condition_satisfied = false;
     prevail_condition_satisfied = false;
     pre_configuration_joint_angles_reached = false;
+    reach_pre_configuration_joint_angles = false;
   }
 
   void MotionSpecificationActionServer::kinova_setup_communication(
@@ -1058,18 +1066,33 @@ namespace motion_specification_action
   {
     try
     {
-      pre_configuration_joint_angles_radians = motion_specification_params_object[arm_name]["pre_configuration_joint_angles_radians"].as<std::vector<double>>();
       pre_configuration_joint_angles_tolerance_radians = motion_specification_params_object[arm_name]["pre_configuration_joint_angles_tolerance_radians"].as<double>();
       reach_pre_configuration_joint_angles = motion_specification_params_object[arm_name]["reach_pre_configuration_joint_angles"].as<bool>();
+      pre_configuration_joint_angle_0_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_0_rad"].as<double>();
+      pre_configuration_joint_angle_1_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_1_rad"].as<double>();
+      pre_configuration_joint_angle_2_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_2_rad"].as<double>();
+      pre_configuration_joint_angle_3_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_3_rad"].as<double>();
+      pre_configuration_joint_angle_4_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_4_rad"].as<double>();
+      pre_configuration_joint_angle_5_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_5_rad"].as<double>();
+      pre_configuration_joint_angle_6_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_6_rad"].as<double>();
+      pre_configuration_joint_angles_radians = {pre_configuration_joint_angle_0_rad,
+                                                pre_configuration_joint_angle_1_rad,
+                                                pre_configuration_joint_angle_2_rad,
+                                                pre_configuration_joint_angle_3_rad,
+                                                pre_configuration_joint_angle_4_rad,
+                                                pre_configuration_joint_angle_5_rad,
+                                                pre_configuration_joint_angle_6_rad};
     }
     catch (const YAML::Exception &e)
     {
       RCLCPP_ERROR(this->get_logger(), "Error reading pre-configuration joint angles: %s. Skipping reaching pre-configuration joint angles.", e.what());
+      reach_pre_configuration_joint_angles = false;
       return;
     }
     if (pre_configuration_joint_angles_radians.size() != kinova_constants::NUMBER_OF_JOINTS)
     {
       RCLCPP_ERROR(this->get_logger(), "Pre-configuration joint angles size does not match the number of joints. Skipping reaching pre-configuration joint angles.");
+      reach_pre_configuration_joint_angles = false;
       return;
     }
     

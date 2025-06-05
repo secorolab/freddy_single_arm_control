@@ -138,6 +138,13 @@ namespace motion_specification_action
     double STIFFNESS_GAIN_YAW;
     double STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
     double pre_configuration_joint_angles_tolerance_radians;
+    double pre_configuration_joint_angle_0_rad;
+    double pre_configuration_joint_angle_1_rad;
+    double pre_configuration_joint_angle_2_rad;
+    double pre_configuration_joint_angle_3_rad;
+    double pre_configuration_joint_angle_4_rad;
+    double pre_configuration_joint_angle_5_rad;
+    double pre_configuration_joint_angle_6_rad;
     std::vector<double> pre_configuration_joint_angles_radians;
     bool reach_pre_configuration_joint_angles;
     bool pre_configuration_joint_angles_reached;
