@@ -1,0 +1,4 @@
+[ 20%] Built target action_client
+[ 40%] Built target motion_specification_action_client
+[ 60%] Built target motion_specification_action_server
+[ 70%] [32mBuilding CXX object CMakeFiles/action_server.dir/src/motion_specification_server.cpp.o[0m

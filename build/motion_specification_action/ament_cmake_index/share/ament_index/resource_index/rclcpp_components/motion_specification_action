@@ -1,0 +1,2 @@
+motion_specification_action::MotionSpecificationActionClient;lib/libaction_client.so
+motion_specification_action::MotionSpecificationActionServer;lib/libaction_server.so

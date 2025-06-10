@@ -1,0 +1,242 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-5935eedf1b714c8416d7.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.20"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18
+					]
+				},
+				{
+					"build" : "motion_specification_interfaces__py",
+					"jsonFile" : "directory-motion_specification_interfaces__py-c85b9873308dc3bb9f14.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.20"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_interfaces/motion_specification_interfaces__py",
+					"targetIndexes" : 
+					[
+						4
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1
+					],
+					"name" : "motion_specification_interfaces",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_motion_specification_interfaces_egg::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_motion_specification_interfaces_egg-597fac9e88b191c2f1fe.json",
+					"name" : "ament_cmake_python_build_motion_specification_interfaces_egg",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_copy_motion_specification_interfaces::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_copy_motion_specification_interfaces-d6b51ac8dd514ebe9a04.json",
+					"name" : "ament_cmake_python_copy_motion_specification_interfaces",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces-66835b74cab4c2370b6d.json",
+					"name" : "motion_specification_interfaces",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces__cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces__cpp-dcc904a25d50123d93f4.json",
+					"name" : "motion_specification_interfaces__cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "motion_specification_interfaces__py::@0126596e0167772a2892",
+					"jsonFile" : "target-motion_specification_interfaces__py-f8ba4056d3591a5905fd.json",
+					"name" : "motion_specification_interfaces__py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces__rosidl_generator_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces__rosidl_generator_c-bffd1855a8244888839a.json",
+					"name" : "motion_specification_interfaces__rosidl_generator_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces__rosidl_generator_py::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces__rosidl_generator_py-32ed05d97dfa18f72675.json",
+					"name" : "motion_specification_interfaces__rosidl_generator_py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces__rosidl_generator_type_description::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces__rosidl_generator_type_description-698d4e03633f3bd6069e.json",
+					"name" : "motion_specification_interfaces__rosidl_generator_type_description",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces__rosidl_typesupport_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces__rosidl_typesupport_c-b7cd65924783cd02b0db.json",
+					"name" : "motion_specification_interfaces__rosidl_typesupport_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces__rosidl_typesupport_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces__rosidl_typesupport_cpp-aeebfe9b3ef06425945a.json",
+					"name" : "motion_specification_interfaces__rosidl_typesupport_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces__rosidl_typesupport_fastrtps_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces__rosidl_typesupport_fastrtps_c-5fc28bfc0c9ba976b006.json",
+					"name" : "motion_specification_interfaces__rosidl_typesupport_fastrtps_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces__rosidl_typesupport_fastrtps_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces__rosidl_typesupport_fastrtps_cpp-66f48d38574caa4f9eb4.json",
+					"name" : "motion_specification_interfaces__rosidl_typesupport_fastrtps_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces__rosidl_typesupport_introspection_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces__rosidl_typesupport_introspection_c-7bf6d4b8b583873c72f2.json",
+					"name" : "motion_specification_interfaces__rosidl_typesupport_introspection_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces__rosidl_typesupport_introspection_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces__rosidl_typesupport_introspection_cpp-a2ac40688edc28addf10.json",
+					"name" : "motion_specification_interfaces__rosidl_typesupport_introspection_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces_s__rosidl_typesupport_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces_s__rosidl_typesupport_c-05abfe94e2cda19a0eff.json",
+					"name" : "motion_specification_interfaces_s__rosidl_typesupport_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces_s__rosidl_typesupport_fastrtps_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces_s__rosidl_typesupport_fastrtps_c-d5d70b9f34f2905315db.json",
+					"name" : "motion_specification_interfaces_s__rosidl_typesupport_fastrtps_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces_s__rosidl_typesupport_introspection_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces_s__rosidl_typesupport_introspection_c-c4ba888a82945b5ab287.json",
+					"name" : "motion_specification_interfaces_s__rosidl_typesupport_introspection_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_specification_interfaces_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_specification_interfaces_uninstall-b22c0f86067627bdcef6.json",
+					"name" : "motion_specification_interfaces_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-ce4faa27040474bc42bb.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_interfaces",
+		"source" : "/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_interfaces"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 6
+	}
+}

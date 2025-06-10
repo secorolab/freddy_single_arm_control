@@ -1,0 +1,56 @@
+{
+  "type_description_msg": {
+    "type_description": {
+      "type_name": "motion_specification_interfaces/action/MotionSpecification_GetResult_Response",
+      "fields": [
+        {
+          "name": "status",
+          "type": {
+            "type_id": 2,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        },
+        {
+          "name": "result",
+          "type": {
+            "type_id": 1,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": "motion_specification_interfaces/action/MotionSpecification_Result"
+          },
+          "default_value": ""
+        }
+      ]
+    },
+    "referenced_type_descriptions": [
+      {
+        "type_name": "motion_specification_interfaces/action/MotionSpecification_Result",
+        "fields": [
+          {
+            "name": "motion_successful",
+            "type": {
+              "type_id": 15,
+              "capacity": 0,
+              "string_capacity": 0,
+              "nested_type_name": ""
+            },
+            "default_value": ""
+          }
+        ]
+      }
+    ]
+  },
+  "type_hashes": [
+    {
+      "type_name": "motion_specification_interfaces/action/MotionSpecification_GetResult_Response",
+      "hash_string": "RIHS01_e1cdcbf1c01bd1c082aa5aeb1bd0d0c176e3e939269fdcaccdfa9d0ad2029a76"
+    },
+    {
+      "type_name": "motion_specification_interfaces/action/MotionSpecification_Result",
+      "hash_string": "RIHS01_6c21e18a5017344fc062a07e664eaa980a1bf915bd83212ac2e68285903cbbdd"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/uninstall.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/motion_specification_action_uninstall.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/action_client.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/motion_specification_action_client.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/action_server.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/motion_specification_action_server.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/test.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/edit_cache.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/rebuild_cache.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/list_install_components.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/install.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/install/local.dir
+/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/build/motion_specification_action/CMakeFiles/install/strip.dir
