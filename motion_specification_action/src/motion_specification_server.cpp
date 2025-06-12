@@ -1537,10 +1537,20 @@ namespace motion_specification_action
         {
           if (kinova_arm_mediator.RAD_TO_DEG(jnt_positions(5))>0.0)
           {
-            jnt_torques_cmd(5) = 1.5*(105.0 - kinova_arm_mediator.RAD_TO_DEG(jnt_positions(5)));
+            jnt_torques_cmd(5) = 1.5*(106.0 - kinova_arm_mediator.RAD_TO_DEG(jnt_positions(5)));
           }
           else{
-            jnt_torques_cmd(5) = 1.5*(-105.0 - kinova_arm_mediator.RAD_TO_DEG(jnt_positions(5)));
+            jnt_torques_cmd(5) = 1.5*(-106.0 - kinova_arm_mediator.RAD_TO_DEG(jnt_positions(5)));
+          }
+        }
+        if (std::abs(kinova_arm_mediator.RAD_TO_DEG(jnt_positions(3))) > 142.0)
+        {
+          if (kinova_arm_mediator.RAD_TO_DEG(jnt_positions(3))>0.0)
+          {
+            jnt_torques_cmd(5) = 1.5*(142.0 - kinova_arm_mediator.RAD_TO_DEG(jnt_positions(3)));
+          }
+          else{
+            jnt_torques_cmd(5) = 1.5*(-142.0 - kinova_arm_mediator.RAD_TO_DEG(jnt_positions(3)));
           }
         }
       }
