@@ -1,7 +1,0 @@
-string motion_specification
-
----
-bool motion_successful
-
----
-float32[] tcp_position

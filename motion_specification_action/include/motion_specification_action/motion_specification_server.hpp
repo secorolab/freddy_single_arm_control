@@ -127,7 +127,6 @@ namespace motion_specification_action
     double WRENCH_THRESHOLD_LINEAR;
     double WRENCH_THRESHOLD_ROTATIONAL;
     double JOINT_TORQUE_THRESHOLD;
-    double JOINT_TORQUE_THRESHOLD_PRE_JNT_CONFIG;
     double STIFFNESS_GAIN_X;
     double STIFFNESS_GAIN_Y;
     double STIFFNESS_GAIN_Z;
@@ -138,8 +137,6 @@ namespace motion_specification_action
     double STIFFNESS_GAIN_PITCH;
     double STIFFNESS_GAIN_YAW;
     double STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
-    double STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG;
-    double STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_0_CONFIG;
     double pre_configuration_joint_angles_tolerance_radians;
     double pre_configuration_joint_angle_0_rad;
     double pre_configuration_joint_angle_1_rad;
@@ -236,8 +233,6 @@ namespace motion_specification_action
     double stiffness_pitch_axis_data;
     double stiffness_yaw_axis_data;
     double stiffness_joint_impedance_ctrl;
-    double stiffness_joint_impedance_ctrl_pre_jnt_config;
-    double stiffness_joint_impedance_ctrl_pre_jnt_0_config;
 
     double measured_lin_pos_x_axis_data;
     double measured_lin_pos_y_axis_data;
@@ -352,8 +347,7 @@ namespace motion_specification_action
       std::vector<double> &pre_configuration_joint_angles_radians,
       double &pre_configuration_joint_angles_tolerance_radians,
       bool &reach_pre_configuration_joint_angles,
-      KDL::JntArray &pre_configuration_jnt_positions_kdl_array,
-      kinova_mediator &kinova_arm_mediator);
+      KDL::JntArray &pre_configuration_jnt_positions_kdl_array);
     // void handle_signal(int sig);
 
     void kinova_feedback(kinova_mediator &kinova_arm_mediator,

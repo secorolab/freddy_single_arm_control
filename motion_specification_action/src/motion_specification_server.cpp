@@ -261,6 +261,7 @@ namespace motion_specification_action
     post_condition_satisfied = false;
     prevail_condition_satisfied = false;
     pre_configuration_joint_angles_reached = false;
+    reach_pre_configuration_joint_angles = false;
   }
 
   void MotionSpecificationActionServer::kinova_setup_communication(
@@ -1061,13 +1062,11 @@ namespace motion_specification_action
       std::vector<double> &pre_configuration_joint_angles_radians,
       double &pre_configuration_joint_angles_tolerance_radians,
       bool &reach_pre_configuration_joint_angles,
-      KDL::JntArray &pre_configuration_jnt_positions_kdl_array,
-      kinova_mediator &kinova_arm_mediator)
+      KDL::JntArray &pre_configuration_jnt_positions_kdl_array)
   {
     try
     {
       pre_configuration_joint_angles_tolerance_radians = motion_specification_params_object[arm_name]["pre_configuration_joint_angles_tolerance_radians"].as<double>();
-      pre_configuration_max_deviation_radians = motion_specification_params_object[arm_name]["pre_configuration_max_deviation_radians"].as<double>();
       reach_pre_configuration_joint_angles = motion_specification_params_object[arm_name]["reach_pre_configuration_joint_angles"].as<bool>();
       pre_configuration_joint_angle_0_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_0_rad"].as<double>();
       pre_configuration_joint_angle_1_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_1_rad"].as<double>();
@@ -1076,15 +1075,13 @@ namespace motion_specification_action
       pre_configuration_joint_angle_4_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_4_rad"].as<double>();
       pre_configuration_joint_angle_5_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_5_rad"].as<double>();
       pre_configuration_joint_angle_6_rad = motion_specification_params_object[arm_name]["pre_configuration_joint_angle_6_rad"].as<double>();
-      pre_configuration_joint_angles_tolerance_radians = kinova_arm_mediator.DEG_TO_RAD(pre_configuration_joint_angles_tolerance_radians);
-      pre_configuration_max_deviation_radians = kinova_arm_mediator.DEG_TO_RAD(pre_configuration_max_deviation_radians);
-      pre_configuration_joint_angles_radians = {kinova_arm_mediator.DEG_TO_RAD(pre_configuration_joint_angle_0_rad),
-                                                kinova_arm_mediator.DEG_TO_RAD(pre_configuration_joint_angle_1_rad),
-                                                kinova_arm_mediator.DEG_TO_RAD(pre_configuration_joint_angle_2_rad),
-                                                kinova_arm_mediator.DEG_TO_RAD(pre_configuration_joint_angle_3_rad),
-                                                kinova_arm_mediator.DEG_TO_RAD(pre_configuration_joint_angle_4_rad),
-                                                kinova_arm_mediator.DEG_TO_RAD(pre_configuration_joint_angle_5_rad),
-                                                kinova_arm_mediator.DEG_TO_RAD(pre_configuration_joint_angle_6_rad)};
+      pre_configuration_joint_angles_radians = {pre_configuration_joint_angle_0_rad,
+                                                pre_configuration_joint_angle_1_rad,
+                                                pre_configuration_joint_angle_2_rad,
+                                                pre_configuration_joint_angle_3_rad,
+                                                pre_configuration_joint_angle_4_rad,
+                                                pre_configuration_joint_angle_5_rad,
+                                                pre_configuration_joint_angle_6_rad};
     }
     catch (const YAML::Exception &e)
     {
@@ -1139,14 +1136,11 @@ namespace motion_specification_action
       STIFFNESS_GAIN_PITCH = config_file_object[arm_name]["STIFFNESS_GAIN_PITCH"].as<double>();
       STIFFNESS_GAIN_YAW = config_file_object[arm_name]["STIFFNESS_GAIN_YAW"].as<double>();
       STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL = config_file_object[arm_name]["STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL"].as<double>();
-      STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG = config_file_object[arm_name]["STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG"].as<double>();
-      STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_0_CONFIG = config_file_object[arm_name]["STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_0_CONFIG"].as<double>();
 
       gravitational_acceleration = config_file_object[arm_name]["gravitational_acceleration"].as<std::vector<float>>();
       WRENCH_THRESHOLD_LINEAR = config_file_object[arm_name]["WRENCH_THRESHOLD_LINEAR"].as<double>();
       WRENCH_THRESHOLD_ROTATIONAL = config_file_object[arm_name]["WRENCH_THRESHOLD_ROTATIONAL"].as<double>();
       JOINT_TORQUE_THRESHOLD = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD"].as<double>();
-      JOINT_TORQUE_THRESHOLD_PRE_JNT_CONFIG = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD_PRE_JNT_CONFIG"].as<double>();
 
       stiffness_lin_x_axis_data = STIFFNESS_GAIN_X;
       stiffness_lin_y_axis_data = STIFFNESS_GAIN_Y;
@@ -1160,8 +1154,6 @@ namespace motion_specification_action
       stiffness_pitch_axis_data = STIFFNESS_GAIN_PITCH;
       stiffness_yaw_axis_data = STIFFNESS_GAIN_YAW;
       stiffness_joint_impedance_ctrl = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
-      stiffness_joint_impedance_ctrl_pre_jnt_config = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG;
-      stiffness_joint_impedance_ctrl_pre_jnt_0_config = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_0_CONFIG;
 
       BL_x_axis_wrt_GF_vector = config_file_object[arm_name]["BL_x_axis_wrt_GF"].as<std::vector<double>>();
       BL_y_axis_wrt_GF_vector = config_file_object[arm_name]["BL_y_axis_wrt_GF"].as<std::vector<double>>();
@@ -1200,11 +1192,6 @@ namespace motion_specification_action
           measured_endEffPose_FrameName, measured_endEffTwist_FrameName,
           fkSolverPos, fkSolverVel, BL_wrt_FrameName_frame);
 
-      std::cout << "Current joint configuration: " << std::endl;
-      for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
-      {
-        std::cout << "Joint[" << i << "]:  " << kinova_arm_mediator.RAD_TO_DEG(jnt_positions(i)) << std::endl;
-      }
       calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                     jnt_velocity, jd_qd, xdd,
                                     xdd_minus_jd_qd, jnt_accelerations,
@@ -1257,7 +1244,6 @@ namespace motion_specification_action
 
       if (goal_accepted_and_executing && reach_pre_configuration_joint_angles && !pre_configuration_joint_angles_reached)
       {
-        std::cout << " Trying to reach pre-configuration joint angles..." << std::endl;
         for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; ++i)
         {
           jnt_angle_diff = normalize_angle_diff(pre_configuration_joint_angles_radians[i] - jnt_positions(i));
@@ -1281,27 +1267,16 @@ namespace motion_specification_action
           int jnt_angle_within_tolerance_cnt = 0;
           for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
           {
-            std::cout << "pre_configuration_joint_angles_radians[" << i << "] " << kinova_arm_mediator.RAD_TO_DEG(pre_configuration_joint_angles_radians[i]) << std::endl;
-            std::cout << "jnt_positions: " << kinova_arm_mediator.RAD_TO_DEG(jnt_positions(i)) << std::endl;
             jnt_angle_diff = normalize_angle_diff(pre_configuration_joint_angles_radians[i] - jnt_positions(i));
             if (std::abs(jnt_angle_diff) < pre_configuration_joint_angles_tolerance_radians)
             {
               ++jnt_angle_within_tolerance_cnt;
             }
-            if (i==0)
-            {
-              jnt_torques_cmd(i) = stiffness_joint_impedance_ctrl_pre_jnt_0_config * jnt_angle_diff + torques_gravity_compensation(i);
-              std::cout << "jnt_torques_cmd(" << i << "):  " << stiffness_joint_impedance_ctrl_pre_jnt_0_config * jnt_angle_diff << std::endl;
-            }
-            else{
-              jnt_torques_cmd(i) = stiffness_joint_impedance_ctrl_pre_jnt_config * jnt_angle_diff + torques_gravity_compensation(i);
-              std::cout << "jnt_torques_cmd(" << i << "):  " << stiffness_joint_impedance_ctrl_pre_jnt_config * jnt_angle_diff << std::endl;
-            }
+            jnt_torques_cmd(i) = stiffness_joint_impedance_ctrl * jnt_angle_diff + torques_gravity_compensation(i);
           }
           if (jnt_angle_within_tolerance_cnt == kinova_constants::NUMBER_OF_JOINTS)
           {
             pre_configuration_joint_angles_reached = true;
-            reach_pre_configuration_joint_angles = false;
             std::cout << "Pre-configuration joint angles reached." << std::endl;
           }
         }
@@ -1475,7 +1450,7 @@ namespace motion_specification_action
           jnt_torques_cmd(i) = stiffness_joint_impedance_ctrl * jnt_angle_diff + torques_gravity_compensation(i);
         }
       }
-      else if(!reach_pre_configuration_joint_angles)
+      else
       {
         // write the ee torques to linkWrenches_FrameName
         linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(0) = -apply_ee_force_x_axis_data;
@@ -1520,52 +1495,15 @@ namespace motion_specification_action
       }
 
       // thresholding the jnt_torques_cmd before sending to the robot
-      if (!reach_pre_configuration_joint_angles)
+      for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
       {
-        for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
+        if (jnt_torques_cmd(i) > 0.0)
         {
-          if (jnt_torques_cmd(i) > 0.0)
-          {
-            jnt_torques_cmd(i) = std::min(JOINT_TORQUE_THRESHOLD, jnt_torques_cmd(i));
-          }
-          else
-          {
-            jnt_torques_cmd(i) = std::max(-JOINT_TORQUE_THRESHOLD, jnt_torques_cmd(i));
-          }
+          jnt_torques_cmd(i) = std::min(JOINT_TORQUE_THRESHOLD, jnt_torques_cmd(i));
         }
-        if (std::abs(kinova_arm_mediator.RAD_TO_DEG(jnt_positions(5))) > 106.0)
+        else
         {
-          if (kinova_arm_mediator.RAD_TO_DEG(jnt_positions(5))>0.0)
-          {
-            jnt_torques_cmd(5) = 1.5*(106.0 - kinova_arm_mediator.RAD_TO_DEG(jnt_positions(5)));
-          }
-          else{
-            jnt_torques_cmd(5) = 1.5*(-106.0 - kinova_arm_mediator.RAD_TO_DEG(jnt_positions(5)));
-          }
-        }
-        if (std::abs(kinova_arm_mediator.RAD_TO_DEG(jnt_positions(3))) > 142.0)
-        {
-          if (kinova_arm_mediator.RAD_TO_DEG(jnt_positions(3))>0.0)
-          {
-            jnt_torques_cmd(5) = 1.5*(142.0 - kinova_arm_mediator.RAD_TO_DEG(jnt_positions(3)));
-          }
-          else{
-            jnt_torques_cmd(5) = 1.5*(-142.0 - kinova_arm_mediator.RAD_TO_DEG(jnt_positions(3)));
-          }
-        }
-      }
-      else{
-        for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
-        {
-          if (jnt_torques_cmd(i) > 0.0)
-          {
-            jnt_torques_cmd(i) = std::min(JOINT_TORQUE_THRESHOLD_PRE_JNT_CONFIG, jnt_torques_cmd(i));
-          }
-          else
-          {
-            jnt_torques_cmd(i) = std::max(-JOINT_TORQUE_THRESHOLD_PRE_JNT_CONFIG, jnt_torques_cmd(i));
-          }
-          std::cout << "jnt_torques_cmd(" << i << ") is: " << jnt_torques_cmd(i) << std::endl;
+          jnt_torques_cmd(i) = std::max(-JOINT_TORQUE_THRESHOLD, jnt_torques_cmd(i));
         }
       }
 
@@ -1667,8 +1605,7 @@ namespace motion_specification_action
           pre_configuration_joint_angles_radians,
           pre_configuration_joint_angles_tolerance_radians,
           reach_pre_configuration_joint_angles,
-          pre_configuration_jnt_positions_kdl_array,
-          kinova_arm_mediator);
+          pre_configuration_jnt_positions_kdl_array);
     }
     catch (const YAML::Exception &e)
     {
