@@ -1,0 +1,6 @@
+{
+  "package_name": "motion_specification_interfaces",
+  "non_idl_tuples": [
+    "/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_interfaces:action/MotionSpecification.action"
+  ]
+}

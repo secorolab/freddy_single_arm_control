@@ -1,0 +1,172 @@
+In file included from [01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1[m[K:
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:[m[K In constructor ‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::[01;32m[KMotionSpecificationActionServer[m[K(const rclcpp::NodeOptions&)[m[K’:
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:197:19:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::torques_gravity_compensation[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  197 |     KDL::JntArray [01;35m[Ktorques_gravity_compensation[m[K;
+      |                   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:196:19:[m[K [01;35m[Kwarning: [m[K  ‘[01m[KKDL::JntArray motion_specification_action::MotionSpecificationActionServer::jnt_velocities[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  196 |     KDL::JntArray [01;35m[Kjnt_velocities[m[K; // has only joint velocities of all joints
+      |                   [01;35m[K^~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:204:19:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::zero_jnt_velocities[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  204 |     KDL::JntArray [01;35m[Kzero_jnt_velocities[m[K;
+      |                   [01;35m[K^~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:117:23:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kstd::atomic<bool> motion_specification_action::MotionSpecificationActionServer::switch_to_joint_impendance_control[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  117 |     std::atomic<bool> [01;35m[Kswitch_to_joint_impendance_control[m[K; // when control loop is running and no active ms is specified after the first one onwards
+      |                       [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:216:12:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::jnt_angle_diff[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  216 |     double [01;35m[Kjnt_angle_diff[m[K;
+      |            [01;35m[K^~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:150:9:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kint motion_specification_action::MotionSpecificationActionServer::pre_condition_constraint_count[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  150 |     int [01;35m[Kpre_condition_constraint_count[m[K;
+      |         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:290:9:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::iterationCount[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  290 |     int [01;35m[KiterationCount[m[K;
+      |         [01;35m[K^~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:154:9:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kint motion_specification_action::MotionSpecificationActionServer::frequency_of_state_publish[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  154 |     int [01;35m[Kfrequency_of_state_publish[m[K;
+      |         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:286:27:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::desired_quat_FrameName[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  286 |     std::array<double, 4> [01;35m[Kdesired_quat_FrameName[m[K;
+      |                           [01;35m[K^~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:234:27:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kstd::array<double, 4> motion_specification_action::MotionSpecificationActionServer::measured_quat_FrameName[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  234 |     std::array<double, 4> [01;35m[Kmeasured_quat_FrameName[m[K;
+      |                           [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:234:27:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::measured_quat_FrameName[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  234 |     std::array<double, 4> [01;35m[Kmeasured_quat_FrameName[m[K;
+      |                           [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:230:12:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kdouble motion_specification_action::MotionSpecificationActionServer::measured_lin_pos_x_axis_data[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  230 |     double [01;35m[Kmeasured_lin_pos_x_axis_data[m[K;
+      |            [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:282:12:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::force_to_apply_z_axis[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  282 |     double [01;35m[Kforce_to_apply_z_axis[m[K;
+      |            [01;35m[K^~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:118:10:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kbool motion_specification_action::MotionSpecificationActionServer::configuration_file_read[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  118 |     bool [01;35m[Kconfiguration_file_read[m[K;
+      |          [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:118:10:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::configuration_file_read[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  118 |     bool [01;35m[Kconfiguration_file_read[m[K;
+      |          [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:116:23:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kstd::atomic<bool> motion_specification_action::MotionSpecificationActionServer::motion_unsuccessful[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  116 |     std::atomic<bool> [01;35m[Kmotion_unsuccessful[m[K;                // flag set when prevail_condition is not met
+      |                       [01;35m[K^~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:122:23:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::prevail_condition_satisfied[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  122 |     std::atomic<bool> [01;35m[Kprevail_condition_satisfied[m[K;
+      |                       [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:119:10:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kbool motion_specification_action::MotionSpecificationActionServer::jnt_impedance_setpoint_is_set[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  119 |     bool [01;35m[Kjnt_impedance_setpoint_is_set[m[K;
+      |          [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:143:10:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::pre_configuration_joint_angles_reached[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  143 |     bool [01;35m[Kpre_configuration_joint_angles_reached[m[K;
+      |          [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:140:12:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kdouble motion_specification_action::MotionSpecificationActionServer::pre_configuration_joint_angles_tolerance_radians[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  140 |     double [01;35m[Kpre_configuration_joint_angles_tolerance_radians[m[K;
+      |            [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:144:12:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::pre_configuration_max_deviation_radians[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  144 |     double [01;35m[Kpre_configuration_max_deviation_radians[m[K;
+      |            [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:141:25:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kstd::vector<double> motion_specification_action::MotionSpecificationActionServer::pre_configuration_joint_angles_radians[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  141 |     std::vector<double> [01;35m[Kpre_configuration_joint_angles_radians[m[K;
+      |                         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:293:25:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::rne_output_jnt_torques_vector_to_set_control_mode[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  293 |     std::vector<double> [01;35m[Krne_output_jnt_torques_vector_to_set_control_mode[m[K;
+      |                         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:145:17:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kstd::string motion_specification_action::MotionSpecificationActionServer::arm_name[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  145 |     std::string [01;35m[Karm_name[m[K;
+      |                 [01;35m[K^~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:149:17:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::robot_base_link_name[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  149 |     std::string [01;35m[Krobot_base_link_name[m[K;
+      |                 [01;35m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:108:10:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kbool motion_specification_action::MotionSpecificationActionServer::transform_available[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  108 |     bool [01;35m[Ktransform_available[m[K;
+      |          [01;35m[K^~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:108:10:[m[K [01;35m[Kwarning: [m[K‘[01m[Kmotion_specification_action::MotionSpecificationActionServer::transform_available[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  108 |     bool [01;35m[Ktransform_available[m[K;
+      |          [01;35m[K^~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/include/motion_specification_action/motion_specification_server.hpp:107:35:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kstd::chrono::duration<double> motion_specification_action::MotionSpecificationActionServer::transform_timeout_duration[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  107 |     std::chrono::duration<double> [01;35m[Ktransform_timeout_duration[m[K;
+      |                                   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:5:3:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |   [01;35m[KMotionSpecificationActionServer[m[K::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
+      |   [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:[m[K In lambda function:
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:120:77:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kgoal[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter-Wunused-parameter]8;;[m[K]
+  120 |                            [01;35m[Kstd::shared_ptr<const MotionSpecification::Goal> goal[m[K)
+      |                            [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:[m[K In member function ‘[01m[Kvoid motion_specification_action::MotionSpecificationActionServer::[01;32m[Kpublish_joint_states[m[K(KDL::JntArray&)[m[K’:
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:233:12:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Ktime_now[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  233 |     double [01;35m[Ktime_now[m[K = this->now().seconds();
+      |            [01;35m[K^~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:[m[K In member function ‘[01m[Kvoid motion_specification_action::MotionSpecificationActionServer::[01;32m[Kget_pre_configuration_joint_angles[m[K(const std::string&, const YAML::Node&, std::vector<double>&, double&, bool&, KDL::JntArray&)[m[K’:
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1070:55:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kstd::vector<double>::size_type[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} and ‘[01m[Kint[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+ 1070 |     if ([01;35m[Kpre_configuration_joint_angles_radians.size() != kinova_constants::NUMBER_OF_JOINTS[m[K)
+      |         [01;35m[K~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:[m[K In member function ‘[01m[Kvoid motion_specification_action::MotionSpecificationActionServer::[01;32m[Kcontrol_loop[m[K()[m[K’:
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1189:1:[m[K [01;31m[Kerror: [m[Kversion control conflict marker in file
+ 1189 | [01;31m[K<<<<<<<[m[K Updated upstream
+      | [01;31m[K^~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1190:3:[m[K [01;31m[Kerror: [m[Kexpected primary-expression before ‘[01m[K==[m[K’ token
+ 1190 | ==[01;31m[K==[m[K===
+      |   [01;31m[K^~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1190:5:[m[K [01;31m[Kerror: [m[Kexpected primary-expression before ‘[01m[K==[m[K’ token
+ 1190 | ====[01;31m[K==[m[K=
+      |     [01;31m[K^~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1190:7:[m[K [01;31m[Kerror: [m[Kexpected primary-expression before ‘[01m[K=[m[K’ token
+ 1190 | ======[01;31m[K=[m[K
+      |       [01;31m[K^[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1194:1:[m[K [01;31m[Kerror: [m[Kversion control conflict marker in file
+ 1194 | [01;31m[K>>>>>>>[m[K Stashed changes
+      | [01;31m[K^~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:[m[K In member function ‘[01m[Kvoid motion_specification_action::MotionSpecificationActionServer::[01;32m[Kexecute[m[K(std::shared_ptr<rclcpp_action::ServerGoalHandle<motion_specification_interfaces::action::MotionSpecification> >)[m[K’:
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1629:28:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K((motion_specification_action::MotionSpecificationActionServer*)this)->motion_specification_action::MotionSpecificationActionServer::measured_lin_pos_x_axis_data[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+ 1629 |       tcp_wrt_FrameName = {[01;35m[Kmeasured_lin_pos_x_axis_data[m[K, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data};
+      |                            [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1629:28:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K((motion_specification_action::MotionSpecificationActionServer*)this)->motion_specification_action::MotionSpecificationActionServer::measured_lin_pos_x_axis_data[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1629:58:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K((motion_specification_action::MotionSpecificationActionServer*)this)->motion_specification_action::MotionSpecificationActionServer::measured_lin_pos_y_axis_data[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+ 1629 |       tcp_wrt_FrameName = {measured_lin_pos_x_axis_data, [01;35m[Kmeasured_lin_pos_y_axis_data[m[K, measured_lin_pos_z_axis_data};
+      |                                                          [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1629:58:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K((motion_specification_action::MotionSpecificationActionServer*)this)->motion_specification_action::MotionSpecificationActionServer::measured_lin_pos_y_axis_data[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1629:88:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K((motion_specification_action::MotionSpecificationActionServer*)this)->motion_specification_action::MotionSpecificationActionServer::measured_lin_pos_z_axis_data[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+ 1629 |       tcp_wrt_FrameName = {measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, [01;35m[Kmeasured_lin_pos_z_axis_data[m[K};
+      |                                                                                        [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/motion_specification_action/src/motion_specification_server.cpp:1629:88:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K((motion_specification_action::MotionSpecificationActionServer*)this)->motion_specification_action::MotionSpecificationActionServer::measured_lin_pos_z_axis_data[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+gmake[2]: *** [CMakeFiles/action_server.dir/build.make:76: CMakeFiles/action_server.dir/src/motion_specification_server.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:195: CMakeFiles/action_server.dir/all] Error 2
+gmake: *** [Makefile:146: all] Error 2

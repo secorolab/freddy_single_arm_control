@@ -1,0 +1,33 @@
+[ 20%] Built target motion_specification_action_client
+[ 40%] Built target action_client
+[ 60%] Built target motion_specification_action_server
+[ 70%] [32mBuilding CXX object CMakeFiles/action_server.dir/src/motion_specification_server.cpp.o[0m
+[ 80%] [32m[1mLinking CXX shared library libaction_server.so[0m
+[100%] Built target action_server
+-- Install configuration: ""
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/lib/motion_specification_action/motion_specification_action_client
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/lib/libaction_client.so
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/lib/motion_specification_action/motion_specification_action_server
+-- Installing: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/lib/libaction_server.so
+-- Set non-toolchain portion of runtime path of "/home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/lib/libaction_server.so" to ""
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/config
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/config/sample_motion_specification.yaml
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/config/ms_config.yaml
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/urdf
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/urdf/Kinova_1.urdf
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/ament_index/resource_index/package_run_dependencies/motion_specification_action
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/ament_index/resource_index/parent_prefix_path/motion_specification_action
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/environment/ament_prefix_path.sh
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/environment/ament_prefix_path.dsv
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/environment/path.sh
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/environment/path.dsv
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/local_setup.bash
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/local_setup.sh
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/local_setup.zsh
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/local_setup.dsv
+-- Installing: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/package.dsv
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/ament_index/resource_index/packages/motion_specification_action
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/ament_index/resource_index/rclcpp_components/motion_specification_action
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/cmake/motion_specification_actionConfig.cmake
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/cmake/motion_specification_actionConfig-version.cmake
+-- Up-to-date: /home/linux/Master-thesis/Project-Code/ros2_ws/src/freddy_single_arm_control/install/motion_specification_action/share/motion_specification_action/package.xml

@@ -1,0 +1,7 @@
+from motion_specification_interfaces.action._motion_specification import MotionSpecification  # noqa: F401
+from motion_specification_interfaces.action._motion_specification import MotionSpecification_GetResult_Event  # noqa: F401
+from motion_specification_interfaces.action._motion_specification import MotionSpecification_GetResult_Request  # noqa: F401
+from motion_specification_interfaces.action._motion_specification import MotionSpecification_GetResult_Response  # noqa: F401
+from motion_specification_interfaces.action._motion_specification import MotionSpecification_SendGoal_Event  # noqa: F401
+from motion_specification_interfaces.action._motion_specification import MotionSpecification_SendGoal_Request  # noqa: F401
+from motion_specification_interfaces.action._motion_specification import MotionSpecification_SendGoal_Response  # noqa: F401
