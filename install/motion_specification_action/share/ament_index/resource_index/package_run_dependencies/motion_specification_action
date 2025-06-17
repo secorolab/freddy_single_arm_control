@@ -1,1 +1,0 @@
-motion_specification_interfaces;yaml-cpp;kdl_parser;orocos_kdl;Eigen3;kinova_mediator;tf2;tf2_ros;tf2_geometry_msgs;tf2_kdl;rclcpp;sensor_msgs;geometry_msgs;rclcpp_action;rclcpp_components;ament_lint_auto;ament_lint_common
