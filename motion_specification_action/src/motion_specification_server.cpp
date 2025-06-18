@@ -1320,7 +1320,7 @@ namespace motion_specification_action
         if (pre_condition_satisfied || !pre_condition_exists)
         {
           // check if the motion specification satisfies post condition
-          if (post_condition_exists &&!post_condition_satisfied)
+          if (post_condition_exists && !post_condition_satisfied)
           {
             check_pre_or_post_condition_satisfaction(
                 measured_lin_pos_x_axis_data,
@@ -1503,7 +1503,7 @@ namespace motion_specification_action
 
       // Ressist crossing joint angle limits
       auto limit_joint_torque = [&](int joint_index, double angle_limit_deg) {
-        double angle_deg = kinova_arm_mediator.RAD_TO_DEG(jnt_positions(joint_index));
+        double angle_deg = kinova_arm_mediator.RAD_TO_DEG(jnt_positions(joint_index)); // no need to normalize, as it is done in kinova mediator for joints 1,3,5
         if (std::abs(angle_deg) > angle_limit_deg) {
             double direction = angle_deg > 0.0 ? 1.0 : -1.0;
             jnt_torques_cmd(joint_index) = 1.5 * (direction * angle_limit_deg - angle_deg);
