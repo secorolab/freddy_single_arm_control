@@ -1632,9 +1632,16 @@ namespace motion_specification_action
     {
       pre_condition_exists = false;
     }
+    else{      
+      pre_condition_exists = true;
+    }
     if (post_condition_constraint_count == 0)
     {
       post_condition_exists = false;
+    }
+    else
+    {
+      post_condition_exists = true;
     }
 
     get_transform_BL_wrt_desired_frame(
