@@ -1256,6 +1256,7 @@ namespace motion_specification_action
 
         if (reach_pre_configuration_joint_angles)
         {
+          std::cout << "Reaching pre-configuration joint angles..." << std::endl;
           calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                       jnt_velocity, jd_qd, xdd,
                                       xdd_minus_jd_qd, jnt_accelerations,
@@ -1414,45 +1415,7 @@ namespace motion_specification_action
                                     xdd_minus_jd_qd, jnt_accelerations,
                                     jnt_positions, jnt_velocities,
                                     linkWrenches_zero, torques_gravity_compensation);
-        
-        // test for pre-configuration joint angles starts here
-        bool jnt_config_test = false;
-        double stiffness_joint_impedance_ctrl_pre_jnt_0_config = 0.5;
-        double stiffness_joint_impedance_ctrl_pre_jnt_config = 0.5;
-        if (jnt_config_test)
-        {
-          pre_configuration_joint_angles_radians = {
-            kinova_arm_mediator.DEG_TO_RAD(6.),
-            kinova_arm_mediator.DEG_TO_RAD(88.),
-            kinova_arm_mediator.DEG_TO_RAD(300.),
-            kinova_arm_mediator.DEG_TO_RAD(-120.),
-            kinova_arm_mediator.DEG_TO_RAD(240.),
-            kinova_arm_mediator.DEG_TO_RAD(25.),
-            kinova_arm_mediator.DEG_TO_RAD(175.)};
 
-          std::cout << "Current joint configuration: " << std::endl;
-          for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
-          {
-            jnt_angle_diff = pre_configuration_joint_angles_radians[i] - jnt_positions(i);
-            // Normalize angular difference for continuous revolute joints (0,2,4,6)
-            if (i % 2 == 0)
-            {
-                jnt_angle_diff = normalize_angle_diff(jnt_angle_diff);
-            }
-            std::cout << "Joint[" << i << "]:  meas: " << kinova_arm_mediator.RAD_TO_DEG(jnt_positions(i)) << "; des: " << kinova_arm_mediator.RAD_TO_DEG(pre_configuration_joint_angles_radians[i])<< "; difference: " << kinova_arm_mediator.RAD_TO_DEG(jnt_angle_diff) << std::endl;
-
-            if (i==0)
-            {
-              jnt_torques_cmd(i) = stiffness_joint_impedance_ctrl_pre_jnt_0_config * jnt_angle_diff + torques_gravity_compensation(i);
-              std::cout << "jnt_torques_cmd(" << i << "):  " << stiffness_joint_impedance_ctrl_pre_jnt_0_config * jnt_angle_diff << std::endl;
-            }
-            else{
-              jnt_torques_cmd(i) = stiffness_joint_impedance_ctrl_pre_jnt_config * jnt_angle_diff + torques_gravity_compensation(i);
-              std::cout << "jnt_torques_cmd(" << i << "):  " << stiffness_joint_impedance_ctrl_pre_jnt_config * jnt_angle_diff << std::endl;
-            }
-          }
-        }
-        // test for pre-configuration joint angles ends here
         else if (!jnt_impedance_setpoint_is_set)
         {
           std::cout << "In joint impedance mode" << std::endl;
@@ -1536,7 +1499,6 @@ namespace motion_specification_action
         {
           jnt_torques_cmd(i) = std::max(-joint_torque_threshold, jnt_torques_cmd(i));
         }
-        std::cout << "jnt_torques_cmd(" << i << ") is: " << jnt_torques_cmd(i) << std::endl;
       }
 
       // Ressist crossing joint angle limits
