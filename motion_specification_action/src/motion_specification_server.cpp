@@ -1416,7 +1416,7 @@ namespace motion_specification_action
                                     jnt_positions, jnt_velocities,
                                     linkWrenches_zero, torques_gravity_compensation);
 
-        else if (!jnt_impedance_setpoint_is_set)
+        if (!jnt_impedance_setpoint_is_set)
         {
           std::cout << "In joint impedance mode" << std::endl;
           jnt_positions_setpoint = jnt_positions;
