@@ -102,6 +102,7 @@ namespace motion_specification_action
     read_config_file(config_file_object);
     initialise_solvers(jacobDotSolver, fkSolverPos, fkSolverVel, ikSolverAcc, idSolver, gravitational_acceleration, chain_urdf);
 
+    // Read frame axes and position from the configuration file
     BL_x_axis_wrt_GF = KDL::Vector(BL_x_axis_wrt_GF_vector[0], BL_x_axis_wrt_GF_vector[1], BL_x_axis_wrt_GF_vector[2]);
     BL_y_axis_wrt_GF = KDL::Vector(BL_y_axis_wrt_GF_vector[0], BL_y_axis_wrt_GF_vector[1], BL_y_axis_wrt_GF_vector[2]);
     BL_z_axis_wrt_GF = KDL::Vector(BL_z_axis_wrt_GF_vector[0], BL_z_axis_wrt_GF_vector[1], BL_z_axis_wrt_GF_vector[2]);
@@ -110,11 +111,7 @@ namespace motion_specification_action
 
     // Initialize the KDL frame
     BL_wrt_GF = KDL::Rotation(BL_x_axis_wrt_GF, BL_y_axis_wrt_GF, BL_z_axis_wrt_GF);
-
-    BL_wrt_GF_frame = KDL::Frame(
-        BL_wrt_GF,           // rotation
-        BL_position_wrt_GF); 
-
+    BL_wrt_GF_frame = KDL::Frame(BL_wrt_GF, BL_position_wrt_GF); 
     BL_wrt_FrameName_frame = BL_wrt_GF_frame;
 
     linkWrenches_FrameName = KDL::Wrenches(NUM_LINKS, KDL::Wrench::Zero());
@@ -158,7 +155,7 @@ namespace motion_specification_action
 
     this->action_server_ = rclcpp_action::create_server<MotionSpecification>(
         this,
-        "motion_specification", // action name (not the node name)
+        "motion_specification", // Action name
         handle_goal,
         handle_cancel,
         handle_accepted);
@@ -1005,7 +1002,12 @@ namespace motion_specification_action
     }
   }
 
-  void MotionSpecificationActionServer::read_ms_conditions_count(const YAML::Node &motion_specification_params_object)
+  void MotionSpecificationActionServer::read_ms_conditions_count(
+    const YAML::Node &motion_specification_params_object,
+    const std::string &arm_name,
+    int &pre_condition_constraint_count,
+    int &per_condition_constraint_count,
+    int &post_condition_constraint_count)
   {
     pre_condition_constraint_count = motion_specification_params_object[arm_name]["PRE_CONDITION"]["constraint_count"].as<int>();
     per_condition_constraint_count = motion_specification_params_object[arm_name]["PER_CONDITION"]["constraint_count"].as<int>();
@@ -1237,7 +1239,12 @@ namespace motion_specification_action
       {
         for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; ++i)
         {
-          jnt_angle_diff = normalize_angle_diff(pre_configuration_joint_angles_radians[i] - jnt_positions(i));
+          jnt_angle_diff = pre_configuration_joint_angles_radians[i] - jnt_positions(i);
+          // Normalize angular difference for continuous revolute joints (0,2,4,6)
+          if (i % 2 == 0)
+          {
+            jnt_angle_diff = normalize_angle_diff(jnt_angle_diff);
+          }
           if (std::abs(jnt_angle_diff) > pre_configuration_max_deviation_radians)
           {
             std::cout << "[INFO] Pre-configuration check failed: joint " << i 
@@ -1264,7 +1271,7 @@ namespace motion_specification_action
             {
                 jnt_angle_diff = normalize_angle_diff(jnt_angle_diff);
             }
-            std::cout << "Joint[" << i << "]:  meas: " << kinova_arm_mediator.RAD_TO_DEG(jnt_positions(i)) << "; des: " << kinova_arm_mediator.RAD_TO_DEG(pre_configuration_joint_angles_radians[i])<< "; difference: " << kinova_arm_mediator.RAD_TO_DEG(jnt_angle_diff) << std::endl;
+            // std::cout << "Joint[" << i << "]:  meas: " << kinova_arm_mediator.RAD_TO_DEG(jnt_positions(i)) << "; des: " << kinova_arm_mediator.RAD_TO_DEG(pre_configuration_joint_angles_radians[i])<< "; difference: " << kinova_arm_mediator.RAD_TO_DEG(jnt_angle_diff) << std::endl;
 
             if (std::abs(jnt_angle_diff) < pre_configuration_joint_angles_tolerance_radians)
             {
@@ -1283,7 +1290,7 @@ namespace motion_specification_action
       else if(goal_accepted_and_executing)
       {
         // check if any motion specification satisfies pre condition
-        if (!pre_condition_satisfied)
+        if (pre_condition_exists && !pre_condition_satisfied)
         {
           check_pre_or_post_condition_satisfaction(
               measured_lin_pos_x_axis_data,
@@ -1309,10 +1316,10 @@ namespace motion_specification_action
           }
         }
 
-        if (pre_condition_satisfied)
+        if (pre_condition_satisfied || !pre_condition_exists)
         {
           // check if the motion specification satisfies post condition
-          if (!post_condition_satisfied)
+          if (post_condition_exists &&!post_condition_satisfied)
           {
             check_pre_or_post_condition_satisfaction(
                 measured_lin_pos_x_axis_data,
@@ -1636,7 +1643,11 @@ namespace motion_specification_action
     }
     try
     {
-      read_ms_conditions_count(motion_specification_params_object);
+      read_ms_conditions_count(motion_specification_params_object,
+                               arm_name,
+                               pre_condition_constraint_count,
+                               per_condition_constraint_count,
+                               post_condition_constraint_count);
       read_frame_name(motion_specification_params_object);
       get_pre_configuration_joint_angles(
           arm_name,
@@ -1655,6 +1666,14 @@ namespace motion_specification_action
       return;
     } // if there is an error while reading the motion specification, abort the goal
 
+    if (pre_condition_constraint_count == 0)
+    {
+      pre_condition_exists = false;
+    }
+    if (post_condition_constraint_count == 0)
+    {
+      post_condition_exists = false;
+    }
 
     get_transform_BL_wrt_desired_frame(
         frame_name,
