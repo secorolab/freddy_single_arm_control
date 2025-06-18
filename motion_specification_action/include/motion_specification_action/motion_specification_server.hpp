@@ -81,8 +81,7 @@ namespace motion_specification_action
   {
     PRE_CONDITION = 1,
     PER_CONDITION = 2,
-    POST_CONDITION = 3,
-    PREVAIL_CONDITION = 4
+    POST_CONDITION = 3
   };
 
   class MotionSpecificationActionServer : public rclcpp::Node
@@ -113,13 +112,11 @@ namespace motion_specification_action
     std::atomic<bool> control_loop_active_;
     volatile sig_atomic_t flag;                           // to break control loop
     std::atomic<bool> goal_accepted_and_executing;        // decide when to run while loop in execute block
-    std::atomic<bool> motion_unsuccessful;                // flag set when prevail_condition is not met
     std::atomic<bool> switch_to_joint_impendance_control; // when control loop is running and no active ms is specified after the first one onwards
     bool configuration_file_read;
     bool jnt_impedance_setpoint_is_set;
     std::atomic<bool> pre_condition_satisfied;
     std::atomic<bool> post_condition_satisfied;
-    std::atomic<bool> prevail_condition_satisfied;
 
     // Control loop related: kinova communicatoin, KDL data structure handling
     struct sigaction sa;
@@ -154,6 +151,8 @@ namespace motion_specification_action
     std::vector<double> pre_configuration_joint_angles_radians;
     bool reach_pre_configuration_joint_angles;
     bool pre_configuration_joint_angles_reached;
+    bool pre_condition_exists;
+    bool post_condition_exists;
     double pre_configuration_max_deviation_radians;
     std::string arm_name;
 
@@ -163,7 +162,6 @@ namespace motion_specification_action
     int pre_condition_constraint_count;
     int per_condition_constraint_count;
     int post_condition_constraint_count;
-    int prevail_condition_constraint_count;
     int frequency_of_state_publish;
 
     std::vector<float> gravitational_acceleration; // Example values
@@ -411,7 +409,7 @@ namespace motion_specification_action
         const std::string &arm_name,
         const condition_type &condition_type_value);
 
-    void check_pre_or_post_or_prevail_condition_satisfaction(
+    void check_pre_or_post_condition_satisfaction(
         const double &measured_lin_pos_x_axis_data,
         const double &measured_lin_pos_y_axis_data,
         const double &measured_lin_pos_z_axis_data,
@@ -428,30 +426,6 @@ namespace motion_specification_action
         std::atomic<bool> &condition_satisfied,
         const YAML::Node &motion_specification_params_object,
         const condition_type &condition_type_value);
-
-    // void get_setpoints_from_motion_specification(
-    //     double &measured_lin_pos_x_axis_data,
-    //     double &measured_lin_pos_y_axis_data,
-    //     double &measured_lin_pos_z_axis_data,
-    //     double &measured_lin_vel_x_axis_data,
-    //     double &measured_lin_vel_y_axis_data,
-    //     double &measured_lin_vel_z_axis_data,
-    //     double &measured_roll_data,
-    //     double &measured_pitch_data,
-    //     double &measured_yaw_data,
-    //     double &lin_pos_sp_x_axis_data,
-    //     double &lin_pos_sp_y_axis_data,
-    //     double &lin_pos_sp_z_axis_data,
-    //     double &lin_vel_sp_x_axis_data,
-    //     double &lin_vel_sp_y_axis_data,
-    //     double &lin_vel_sp_z_axis_data,
-    //     double &force_to_apply_x_axis,
-    //     double &force_to_apply_y_axis,
-    //     double &force_to_apply_z_axis,
-    //     const int &per_condition_constraint_count,
-    //     std::array<double, 4> &desired_quat_FrameName,
-    //     const YAML::Node &motion_specification_params_object,
-    //     const std::string &arm_name);
 
     void get_setpoints_from_motion_specification(
       double &lin_pos_sp_x_axis_data,

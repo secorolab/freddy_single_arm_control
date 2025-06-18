@@ -20,7 +20,6 @@ namespace motion_specification_action
         pre_condition_constraint_count(0),
         per_condition_constraint_count(0),
         post_condition_constraint_count(0),
-        prevail_condition_constraint_count(0),
         iterationCount(0),
         frequency_of_state_publish(10),
         gravitational_acceleration{0.0f, 0.0f, -9.81f},
@@ -67,13 +66,13 @@ namespace motion_specification_action
         force_to_apply_y_axis(0.0),
         force_to_apply_z_axis(0.0),
         configuration_file_read(false),
-        motion_unsuccessful(false),
         pre_condition_satisfied(false),
         post_condition_satisfied(false),
-        prevail_condition_satisfied(false),
         jnt_impedance_setpoint_is_set(false),
         reach_pre_configuration_joint_angles(false),
         pre_configuration_joint_angles_reached(false),
+        pre_condition_exists(false),
+        post_condition_exists(false),
         pre_configuration_joint_angles_tolerance_radians(0.1),
         pre_configuration_max_deviation_radians(0.0),
         pre_configuration_joint_angles_radians{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
@@ -254,12 +253,10 @@ namespace motion_specification_action
   void MotionSpecificationActionServer::reset_flags()
   {
     flag = 0;
-    motion_unsuccessful = false;
     switch_to_joint_impendance_control = false;
     jnt_impedance_setpoint_is_set = false;
     pre_condition_satisfied = false;
     post_condition_satisfied = false;
-    prevail_condition_satisfied = false;
     pre_configuration_joint_angles_reached = false;
   }
 
@@ -404,8 +401,7 @@ namespace motion_specification_action
     static const std::unordered_map<std::string, condition_type> condition_type_map = {
         {"PRE_CONDITION", condition_type::PRE_CONDITION},
         {"PER_CONDITION", condition_type::PER_CONDITION},
-        {"POST_CONDITION", condition_type::POST_CONDITION},
-        {"PREVAIL_CONDITION", condition_type::PREVAIL_CONDITION}};
+        {"POST_CONDITION", condition_type::POST_CONDITION}};
     return condition_type_map;
   }
 
@@ -450,10 +446,6 @@ namespace motion_specification_action
     else if (condition_type_value == condition_type::POST_CONDITION)
     {
       condition_type_str = "POST_CONDITION";
-    }
-    else if (condition_type_value == condition_type::PREVAIL_CONDITION)
-    {
-      condition_type_str = "PREVAIL_CONDITION";
     }
     else
     {
@@ -546,10 +538,6 @@ namespace motion_specification_action
     {
       condition_type_str = "POST_CONDITION";
     }
-    else if (condition_type_value == condition_type::PREVAIL_CONDITION)
-    {
-      condition_type_str = "PREVAIL_CONDITION";
-    }
     else
     {
       std::cout << "[check_1D_vector_constraint_satisfaction] Condition type not found" << std::endl;
@@ -595,7 +583,7 @@ namespace motion_specification_action
     }
   }
 
-  void MotionSpecificationActionServer::check_pre_or_post_or_prevail_condition_satisfaction(
+  void MotionSpecificationActionServer::check_pre_or_post_condition_satisfaction(
       const double &measured_lin_pos_x_axis_data,
       const double &measured_lin_pos_y_axis_data,
       const double &measured_lin_pos_z_axis_data,
@@ -631,13 +619,9 @@ namespace motion_specification_action
         {
           condition_type_str = "POST_CONDITION";
         }
-        else if (condition_type_value == condition_type::PREVAIL_CONDITION)
-        {
-          condition_type_str = "PREVAIL_CONDITION";
-        }
         else
         {
-          std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Condition type not found" << std::endl;
+          std::cout << "[check_pre_or_post_condition_satisfaction] Condition type not found" << std::endl;
           flag = 1; // stop the execution
         }
         constraint_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
@@ -665,7 +649,7 @@ namespace motion_specification_action
           case VELOCITY_XYZ:
             if (condition_type_value == condition_type::PRE_CONDITION)
             {
-              std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Velocity constraint not allowed in pre-condition" << std::endl;
+              std::cout << "[check_pre_or_post_condition_satisfaction] Velocity constraint not allowed in pre-condition" << std::endl;
               flag = 1; // stop the execution
               break;
             }
@@ -695,7 +679,7 @@ namespace motion_specification_action
           case FORCE_XYZ:
             if (condition_type_value == condition_type::PRE_CONDITION)
             {
-              std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Force constraint not allowed in pre-condition" << std::endl;
+              std::cout << "[check_pre_or_post_condition_satisfaction] Force constraint not allowed in pre-condition" << std::endl;
               flag = 1; // stop the execution
               break;
             }
@@ -713,7 +697,7 @@ namespace motion_specification_action
           case TORQUE_RPY:
             if (condition_type_value == condition_type::PRE_CONDITION)
             {
-              std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Torque constraint not allowed in pre-condition" << std::endl;
+              std::cout << "[check_pre_or_post_condition_satisfaction] Torque constraint not allowed in pre-condition" << std::endl;
               flag = 1; // stop the execution
               break;
             }
@@ -729,14 +713,14 @@ namespace motion_specification_action
             break;
 
           default:
-            std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Constraint checking not defined for given constraint" << std::endl;
+            std::cout << "[check_pre_or_post_condition_satisfaction] Constraint checking not defined for given constraint" << std::endl;
             flag = 1; // stop the execution
             break;
           }
         }
         else
         {
-          std::cout << "[check_pre_or_post_or_prevail_condition_satisfaction] Constraint type not found" << std::endl;
+          std::cout << "[check_pre_or_post_condition_satisfaction] Constraint type not found" << std::endl;
           flag = 1; // stop the execution
         }
 
@@ -1026,7 +1010,6 @@ namespace motion_specification_action
     pre_condition_constraint_count = motion_specification_params_object[arm_name]["PRE_CONDITION"]["constraint_count"].as<int>();
     per_condition_constraint_count = motion_specification_params_object[arm_name]["PER_CONDITION"]["constraint_count"].as<int>();
     post_condition_constraint_count = motion_specification_params_object[arm_name]["POST_CONDITION"]["constraint_count"].as<int>();
-    prevail_condition_constraint_count = motion_specification_params_object[arm_name]["PREVAIL_CONDITION"]["constraint_count"].as<int>();
   }
 
   void MotionSpecificationActionServer::read_frame_name(const YAML::Node &motion_specification_params_object)
@@ -1302,7 +1285,7 @@ namespace motion_specification_action
         // check if any motion specification satisfies pre condition
         if (!pre_condition_satisfied)
         {
-          check_pre_or_post_or_prevail_condition_satisfaction(
+          check_pre_or_post_condition_satisfaction(
               measured_lin_pos_x_axis_data,
               measured_lin_pos_y_axis_data,
               measured_lin_pos_z_axis_data,
@@ -1331,7 +1314,7 @@ namespace motion_specification_action
           // check if the motion specification satisfies post condition
           if (!post_condition_satisfied)
           {
-            check_pre_or_post_or_prevail_condition_satisfaction(
+            check_pre_or_post_condition_satisfaction(
                 measured_lin_pos_x_axis_data,
                 measured_lin_pos_y_axis_data,
                 measured_lin_pos_z_axis_data,
@@ -1348,24 +1331,6 @@ namespace motion_specification_action
                 post_condition_satisfied,
                 motion_specification_params_object,
                 condition_type::POST_CONDITION);
-
-            check_pre_or_post_or_prevail_condition_satisfaction(
-                measured_lin_pos_x_axis_data,
-                measured_lin_pos_y_axis_data,
-                measured_lin_pos_z_axis_data,
-                measured_roll_data,
-                measured_pitch_data,
-                measured_yaw_data,
-                measured_lin_vel_x_axis_data,
-                measured_lin_vel_y_axis_data,
-                measured_lin_vel_z_axis_data,
-                linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
-                prevail_condition_constraint_count,
-                constraint_type_str,
-                arm_name,
-                prevail_condition_satisfied,
-                motion_specification_params_object,
-                condition_type::PREVAIL_CONDITION);
           }
 
           if (post_condition_satisfied)
@@ -1375,12 +1340,6 @@ namespace motion_specification_action
               std::cout << "Post condition satisfied. Switching to impedance control mode." << std::endl;
               switch_to_joint_impendance_control = true;
             }
-          }
-          else if (!prevail_condition_satisfied)
-          {
-            std::cout << "Prevail condition is not satisfied. Motion specification execution unsuccessful. Switching to impedance control mode." << std::endl;
-            motion_unsuccessful = true;
-            switch_to_joint_impendance_control = true;
           }
           else
           {
@@ -1715,13 +1674,12 @@ namespace motion_specification_action
       tcp_wrt_FrameName = {measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data};
       goal_handle->publish_feedback(feedback);
 
-      if (goal_handle->is_canceling() || motion_unsuccessful)
+      if (goal_handle->is_canceling())
       {
         result->motion_successful = false;
         goal_handle->canceled(result);
         RCLCPP_INFO(this->get_logger(), "Goal canceled");
         goal_accepted_and_executing = false;
-        motion_unsuccessful = true;
         return;
       }
       if (post_condition_satisfied)
@@ -1742,7 +1700,6 @@ namespace motion_specification_action
       goal_handle->canceled(result);
       RCLCPP_INFO(this->get_logger(), "Goal canceled as ros node is terminated");
       goal_accepted_and_executing = false;
-      motion_unsuccessful = true;
       return;
     }
   }
