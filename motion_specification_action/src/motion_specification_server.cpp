@@ -32,6 +32,8 @@ namespace motion_specification_action
         measured_lin_vel_x_axis_data(0.0),
         measured_lin_vel_y_axis_data(0.0),
         measured_lin_vel_z_axis_data(0.0),
+        time_since_start_per_condition_seconds(0.0),
+        ms_start_time_set(false),
         lin_pos_sp_x_axis_data(0.0),
         lin_pos_sp_y_axis_data(0.0),
         lin_pos_sp_z_axis_data(0.0),
@@ -250,6 +252,7 @@ namespace motion_specification_action
   void MotionSpecificationActionServer::reset_flags()
   {
     flag = 0;
+    ms_start_time_set = false;
     switch_to_joint_impendance_control = false;
     jnt_impedance_setpoint_is_set = false;
     pre_condition_satisfied = false;
@@ -380,7 +383,8 @@ namespace motion_specification_action
         {"ORIENTATION_QUATERNION", constraint_type::ORIENTATION_QUATERNION},
         {"ORIENTATION_ROLL", constraint_type::ORIENTATION_ROLL},
         {"ORIENTATION_PITCH", constraint_type::ORIENTATION_PITCH},
-        {"ORIENTATION_YAW", constraint_type::ORIENTATION_YAW}};
+        {"ORIENTATION_YAW", constraint_type::ORIENTATION_YAW},
+        {"TIME_LIMIT", constraint_type::TIME_LIMIT}};
     return constraint_type_map;
   }
 
@@ -590,6 +594,7 @@ namespace motion_specification_action
       const double &measured_lin_vel_x_axis_data,
       const double &measured_lin_vel_y_axis_data,
       const double &measured_lin_vel_z_axis_data,
+      const double &time_since_start_per_condition_seconds,
       KDL::Wrench &linkWrenches_EE,
       const int &condition_constraint_count,
       std::string &constraint_type_str,
@@ -671,6 +676,16 @@ namespace motion_specification_action
 
           case ORIENTATION_YAW:
             check_1D_vector_constraint_satisfaction(measured_yaw_data, constraint_satisfied, i, motion_specification_params_object, arm_name, condition_type_value);
+            break;
+
+          case TIME_LIMIT: // in seconds
+            check_1D_vector_constraint_satisfaction(
+                time_since_start_per_condition_seconds,
+                constraint_satisfied,
+                i,
+                motion_specification_params_object,
+                arm_name,
+                condition_type_value);
             break;
 
           case FORCE_XYZ:
@@ -1303,6 +1318,7 @@ namespace motion_specification_action
               measured_lin_vel_x_axis_data,
               measured_lin_vel_y_axis_data,
               measured_lin_vel_z_axis_data,
+              time_since_start_per_condition_seconds,
               linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
               pre_condition_constraint_count,
               constraint_type_str,
@@ -1319,6 +1335,13 @@ namespace motion_specification_action
 
         if (pre_condition_satisfied || !pre_condition_exists)
         {
+          if (!ms_start_time_set)
+          {
+            auto ms_start_time = std::chrono::high_resolution_clock::now();
+            ms_start_time_set = true;
+          }
+          auto ms_current_time = std::chrono::high_resolution_clock::now();
+          time_since_start_per_condition_seconds = std::chrono::duration<double>(ms_current_time - ms_start_time).count();
           // check if the motion specification satisfies post condition
           if (post_condition_exists && !post_condition_satisfied)
           {
@@ -1332,6 +1355,7 @@ namespace motion_specification_action
                 measured_lin_vel_x_axis_data,
                 measured_lin_vel_y_axis_data,
                 measured_lin_vel_z_axis_data,
+                time_since_start_per_condition_seconds,
                 linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
                 post_condition_constraint_count,
                 constraint_type_str,

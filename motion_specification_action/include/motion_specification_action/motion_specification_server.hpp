@@ -67,7 +67,8 @@ namespace motion_specification_action
     ORIENTATION_QUATERNION = 5,
     ORIENTATION_ROLL = 6,
     ORIENTATION_PITCH = 7,
-    ORIENTATION_YAW = 8
+    ORIENTATION_YAW = 8,
+    TIME_LIMIT = 9,
   };
 
   enum operator_type
@@ -153,6 +154,7 @@ namespace motion_specification_action
     bool pre_configuration_joint_angles_reached;
     bool pre_condition_exists;
     bool post_condition_exists;
+    bool ms_start_time_set;
     double pre_configuration_max_deviation_radians;
     std::string arm_name;
 
@@ -222,6 +224,7 @@ namespace motion_specification_action
     KDL::Twist xdd;
     KDL::Twist xdd_minus_jd_qd;
     KDL::Twist jd_qd;
+    double time_since_start_per_condition_seconds;
     double state_publish_time_step;
     double time_period_of_complete_controller_cycle_data;
     double jnt_angle_diff;
@@ -424,6 +427,7 @@ namespace motion_specification_action
         const double &measured_lin_vel_x_axis_data,
         const double &measured_lin_vel_y_axis_data,
         const double &measured_lin_vel_z_axis_data,
+        const double &time_since_start_per_condition_seconds,
         KDL::Wrench &linkWrenches_EE,
         const int &condition_constraint_count,
         std::string &constraint_type_str,

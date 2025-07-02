@@ -65,3 +65,9 @@ KINOVA_GEN3_2_RIGHT:
           - GREATER_THAN
           - NULL
           - NULL
+      2:
+        type: TIME_LIMIT
+        value:
+          - 5.0
+        operator:
+          - GREATER_THAN
