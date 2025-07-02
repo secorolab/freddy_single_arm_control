@@ -252,6 +252,7 @@ namespace motion_specification_action
   void MotionSpecificationActionServer::reset_flags()
   {
     flag = 0;
+    time_since_start_per_condition_seconds = 0.0;
     ms_start_time_set = false;
     switch_to_joint_impendance_control = false;
     jnt_impedance_setpoint_is_set = false;
