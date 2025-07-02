@@ -53,10 +53,12 @@ KINOVA_GEN3_2_RIGHT:
           - NULL          
 
   POST_CONDITION:
-    constraint_count: 1
+    constraint_count: 2
+    number_of_disjunctions: 2
     constraints:
       1:
         type: POSITION_XYZ
+        disjunction_id: 0
         value:
           - 0.8
           - NULL
@@ -67,6 +69,7 @@ KINOVA_GEN3_2_RIGHT:
           - NULL
       2:
         type: TIME_LIMIT
+        disjunction_id: 1
         value:
           - 5.0
         operator:

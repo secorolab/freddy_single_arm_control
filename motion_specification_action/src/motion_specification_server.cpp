@@ -608,25 +608,31 @@ namespace motion_specification_action
     bool constraint_satisfied = true;
     std::string condition_type_str;
     constraint_type constraint_type_;
+    int number_of_disjunctions_post_condition = 0;
+    std::vector<bool> disjunction_satisfaction_vector;
 
-    // for every constraint in the pre-condition
+    if (condition_type_value == condition_type::PRE_CONDITION)
+    {
+      condition_type_str = "PRE_CONDITION";
+    }
+    else if (condition_type_value == condition_type::POST_CONDITION)
+    {
+      condition_type_str = "POST_CONDITION";
+      number_of_disjunctions_post_condition = motion_specification_params_object[arm_name][condition_type_str]["number_of_disjunctions"].as<int>();
+      disjunction_satisfaction_vector = std::vector<bool>(number_of_disjunctions_post_condition, true);
+    }
+    else
+    {
+      std::cout << "[check_pre_or_post_condition_satisfaction] Condition type not found" << std::endl;
+      flag = 1; // stop the execution
+      return;
+    }
+
+    // for every constraint in the pre or post condition
     if (condition_constraint_count > 0)
     {
       for (int i = 1; i < condition_constraint_count + 1; i++)
       {
-        if (condition_type_value == condition_type::PRE_CONDITION)
-        {
-          condition_type_str = "PRE_CONDITION";
-        }
-        else if (condition_type_value == condition_type::POST_CONDITION)
-        {
-          condition_type_str = "POST_CONDITION";
-        }
-        else
-        {
-          std::cout << "[check_pre_or_post_condition_satisfaction] Condition type not found" << std::endl;
-          flag = 1; // stop the execution
-        }
         constraint_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
 
         auto constraint_iterator = constraint_type_map.find(constraint_type_str);
@@ -652,7 +658,7 @@ namespace motion_specification_action
           case VELOCITY_XYZ:
             if (condition_type_value == condition_type::PRE_CONDITION)
             {
-              std::cout << "[check_pre_or_post_condition_satisfaction] Velocity constraint not allowed in pre-condition" << std::endl;
+              std::cout << "[check_pre_or_post_condition_satisfaction] Velocity constraint not implemented in pre-condition" << std::endl;
               flag = 1; // stop the execution
               break;
             }
@@ -680,6 +686,12 @@ namespace motion_specification_action
             break;
 
           case TIME_LIMIT: // in seconds
+            if (condition_type_value == condition_type::PRE_CONDITION)
+            {
+              std::cout << "[check_pre_or_post_condition_satisfaction] Time limit constraint not implemented in pre-condition" << std::endl;
+              flag = 1; // stop the execution
+              break;
+            }
             check_1D_vector_constraint_satisfaction(
                 time_since_start_per_condition_seconds,
                 constraint_satisfied,
@@ -692,7 +704,7 @@ namespace motion_specification_action
           case FORCE_XYZ:
             if (condition_type_value == condition_type::PRE_CONDITION)
             {
-              std::cout << "[check_pre_or_post_condition_satisfaction] Force constraint not allowed in pre-condition" << std::endl;
+              std::cout << "[check_pre_or_post_condition_satisfaction] Force constraint not implemented in pre-condition" << std::endl;
               flag = 1; // stop the execution
               break;
             }
@@ -710,7 +722,7 @@ namespace motion_specification_action
           case TORQUE_RPY:
             if (condition_type_value == condition_type::PRE_CONDITION)
             {
-              std::cout << "[check_pre_or_post_condition_satisfaction] Torque constraint not allowed in pre-condition" << std::endl;
+              std::cout << "[check_pre_or_post_condition_satisfaction] Torque constraint not implemented in pre-condition" << std::endl;
               flag = 1; // stop the execution
               break;
             }
@@ -737,15 +749,41 @@ namespace motion_specification_action
           flag = 1; // stop the execution
         }
 
-        if (constraint_satisfied && i == condition_constraint_count)
+        if (condition_type_value == condition_type::PRE_CONDITION)
         {
-          condition_satisfied = true;
-          return;
+          if (constraint_satisfied && 
+              i == condition_constraint_count)
+          {
+            condition_satisfied = true;
+            return;
+          }
+          else if (!constraint_satisfied)
+          {
+            condition_satisfied = false;
+            return;
+          }
         }
-        else if (!constraint_satisfied)
+        if (condition_type_value == condition_type::POST_CONDITION)
         {
-          condition_satisfied = false;
-          return;
+          if (!constraint_satisfied)
+          {
+            int disjunction_id = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["disjunction_id"].as<int>();
+            disjunction_satisfaction_vector[disjunction_id] = false;
+          }
+          if (i == condition_constraint_count)
+          {
+            // If any of the disjunctions is satisfied, the post condition is satisfied
+            for (int j = 0; j < number_of_disjunctions_post_condition; j++)
+            {
+              if (disjunction_satisfaction_vector[j])
+              {
+                condition_satisfied = true;
+                return;
+              }              
+            }
+            condition_satisfied = false;
+            return;
+          }
         }
       }
     }
@@ -1338,7 +1376,7 @@ namespace motion_specification_action
         {
           if (!ms_start_time_set)
           {
-            auto ms_start_time = std::chrono::high_resolution_clock::now();
+            ms_start_time = std::chrono::high_resolution_clock::now();
             ms_start_time_set = true;
           }
           auto ms_current_time = std::chrono::high_resolution_clock::now();

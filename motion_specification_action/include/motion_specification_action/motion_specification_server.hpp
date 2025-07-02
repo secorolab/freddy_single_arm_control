@@ -105,6 +105,7 @@ namespace motion_specification_action
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_;
     geometry_msgs::msg::TransformStamped transform_stamped;
     std::chrono::duration<double> transform_timeout_duration;
+    std::chrono::high_resolution_clock::time_point ms_start_time;
     bool transform_available;
 
     std::thread control_loop_thread_;
