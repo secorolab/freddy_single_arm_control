@@ -1107,9 +1107,9 @@ namespace motion_specification_action
     {
       const auto &arm_params = motion_specification_params_object[arm_name];
 
-      pre_configuration_joint_angles_tolerance_radians = kinova_arm_mediator.DEG_TO_RAD(arm_params["pre_configuration_joint_angles_tolerance_radians"].as<double>());
+      pre_configuration_joint_angles_tolerance_radians = kinova_arm_mediator.DEG_TO_RAD(arm_params["pre_configuration_joint_angles_tolerance_degrees"].as<double>());
 
-      pre_configuration_max_deviation_radians = kinova_arm_mediator.DEG_TO_RAD(arm_params["pre_configuration_max_deviation_radians"].as<double>());
+      pre_configuration_max_deviation_radians = kinova_arm_mediator.DEG_TO_RAD(arm_params["pre_configuration_max_deviation_degrees"].as<double>());
 
       reach_pre_configuration_joint_angles = arm_params["reach_pre_configuration_joint_angles"].as<bool>();
 
@@ -1118,7 +1118,7 @@ namespace motion_specification_action
 
       for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; ++i)
       {
-        std::string key = "pre_configuration_joint_angle_" + std::to_string(i) + "_rad";
+        std::string key = "pre_configuration_joint_angle_" + std::to_string(i) + "_deg";
         double angle_deg = arm_params[key].as<double>();
         pre_configuration_joint_angles_radians.push_back(kinova_arm_mediator.DEG_TO_RAD(angle_deg));
       }
