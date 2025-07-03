@@ -3,8 +3,8 @@ arm_name: KINOVA_GEN3_2_RIGHT
 KINOVA_GEN3_2_RIGHT:
 
   reach_pre_configuration_joint_angles: false
-  pre_configuration_max_deviation_degrees: 0.6
-  pre_configuration_joint_angles_tolerance_degrees: 0.1
+  pre_configuration_max_deviation_deg: 0.6
+  pre_configuration_joint_angles_tolerance_deg: 0.1
   pre_configuration_joint_angle_0_deg: 0.0
   pre_configuration_joint_angle_1_deg: 0.0
   pre_configuration_joint_angle_2_deg: 0.0

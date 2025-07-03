@@ -1107,9 +1107,9 @@ namespace motion_specification_action
     {
       const auto &arm_params = motion_specification_params_object[arm_name];
 
-      pre_configuration_joint_angles_tolerance_radians = kinova_arm_mediator.DEG_TO_RAD(arm_params["pre_configuration_joint_angles_tolerance_degrees"].as<double>());
+      pre_configuration_joint_angles_tolerance_radians = kinova_arm_mediator.DEG_TO_RAD(arm_params["pre_configuration_joint_angles_tolerance_deg"].as<double>());
 
-      pre_configuration_max_deviation_radians = kinova_arm_mediator.DEG_TO_RAD(arm_params["pre_configuration_max_deviation_degrees"].as<double>());
+      pre_configuration_max_deviation_radians = kinova_arm_mediator.DEG_TO_RAD(arm_params["pre_configuration_max_deviation_deg"].as<double>());
 
       reach_pre_configuration_joint_angles = arm_params["reach_pre_configuration_joint_angles"].as<bool>();
 
