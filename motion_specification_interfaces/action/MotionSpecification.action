@@ -2,6 +2,7 @@ string motion_specification
 
 ---
 bool motion_successful
+int32[] post_condition_indices
 
 ---
 float32[] tcp_position

@@ -119,6 +119,7 @@ namespace motion_specification_action
     bool jnt_impedance_setpoint_is_set;
     std::atomic<bool> pre_condition_satisfied;
     std::atomic<bool> post_condition_satisfied;
+    std::vector<int> post_condition_indices; // to store the indices of the post condition constraints that are satisfied
 
     // Control loop related: kinova communicatoin, KDL data structure handling
     struct sigaction sa;
@@ -434,6 +435,7 @@ namespace motion_specification_action
         std::string &constraint_type_str,
         const std::string &arm_name,
         std::atomic<bool> &condition_satisfied,
+        std::vector<int> &post_condition_indices,
         const YAML::Node &motion_specification_params_object,
         const condition_type &condition_type_value);
 

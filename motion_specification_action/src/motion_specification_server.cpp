@@ -601,6 +601,7 @@ namespace motion_specification_action
       std::string &constraint_type_str,
       const std::string &arm_name,
       std::atomic<bool> &condition_satisfied,
+      std::vector<int> &post_condition_indices,
       const YAML::Node &motion_specification_params_object,
       const condition_type &condition_type_value)
   {
@@ -778,8 +779,12 @@ namespace motion_specification_action
               if (disjunction_satisfaction_vector[j])
               {
                 condition_satisfied = true;
-                return;
-              }              
+                post_condition_indices.push_back(j);
+              }
+            }
+            if (condition_satisfied)
+            {
+              return;
             }
             condition_satisfied = false;
             return;
@@ -1326,7 +1331,6 @@ namespace motion_specification_action
             {
                 jnt_angle_diff = normalize_angle_diff(jnt_angle_diff);
             }
-            // std::cout << "Joint[" << i << "]:  meas: " << kinova_arm_mediator.RAD_TO_DEG(jnt_positions(i)) << "; des: " << kinova_arm_mediator.RAD_TO_DEG(pre_configuration_joint_angles_radians[i])<< "; difference: " << kinova_arm_mediator.RAD_TO_DEG(jnt_angle_diff) << std::endl;
 
             if (std::abs(jnt_angle_diff) < pre_configuration_joint_angles_tolerance_radians)
             {
@@ -1363,6 +1367,7 @@ namespace motion_specification_action
               constraint_type_str,
               arm_name,
               pre_condition_satisfied,
+              post_condition_indices,
               motion_specification_params_object,
               condition_type::PRE_CONDITION);
 
@@ -1400,6 +1405,7 @@ namespace motion_specification_action
                 constraint_type_str,
                 arm_name,
                 post_condition_satisfied,
+                post_condition_indices,
                 motion_specification_params_object,
                 condition_type::POST_CONDITION);
           }
@@ -1748,6 +1754,7 @@ namespace motion_specification_action
     if (!rclcpp::ok())
     {
       result->motion_successful = false;
+      result->post_condition_indices = post_condition_indices;
       goal_handle->canceled(result);
       RCLCPP_INFO(this->get_logger(), "Goal canceled as ros node is terminated");
       goal_accepted_and_executing = false;
