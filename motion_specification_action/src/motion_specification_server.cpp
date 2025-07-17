@@ -606,7 +606,7 @@ namespace motion_specification_action
       const condition_type &condition_type_value)
   {
     auto constraint_type_map = getConstraintTypeMap();
-    bool constraint_satisfied = true;
+    bool constraint_satisfied;
     std::string condition_type_str;
     constraint_type constraint_type_;
     int number_of_disjunctions_post_condition = 0;
@@ -634,6 +634,7 @@ namespace motion_specification_action
     {
       for (int i = 1; i < condition_constraint_count + 1; i++)
       {
+        constraint_satisfied = true; // reset the constraint satisfaction for every constraint
         constraint_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["type"].as<std::string>();
 
         auto constraint_iterator = constraint_type_map.find(constraint_type_str);
