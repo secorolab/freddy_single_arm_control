@@ -117,6 +117,7 @@ namespace motion_specification_action
     std::atomic<bool> switch_to_joint_impendance_control; // when control loop is running and no active ms is specified after the first one onwards
     bool configuration_file_read;
     bool jnt_impedance_setpoint_is_set;
+    bool abort_motion_execution;
     std::atomic<bool> pre_condition_satisfied;
     std::atomic<bool> post_condition_satisfied;
     std::vector<int> post_condition_indices; // to store the indices of the post condition constraints that are satisfied
@@ -131,9 +132,13 @@ namespace motion_specification_action
     double STIFFNESS_GAIN_X;
     double STIFFNESS_GAIN_Y;
     double STIFFNESS_GAIN_Z;
-    double DAMPING_GAIN_X;
-    double DAMPING_GAIN_Y;
-    double DAMPING_GAIN_Z;
+    double STIFFNESS_GAIN_X_VELOCITY;
+    double STIFFNESS_GAIN_Y_VELOCITY;
+    double STIFFNESS_GAIN_Z_VELOCITY;
+    double INTEGRAL_GAIN_X;
+    double INTEGRAL_GAIN_Y;
+    double INTEGRAL_GAIN_Z;
+    double INTEGRAL_CLAMPING_LIMIT;
     double STIFFNESS_GAIN_ROLL;
     double STIFFNESS_GAIN_PITCH;
     double STIFFNESS_GAIN_YAW;
@@ -229,14 +234,25 @@ namespace motion_specification_action
     double time_since_start_per_condition_seconds;
     double state_publish_time_step;
     double time_period_of_complete_controller_cycle_data;
+    double control_dt;
     double jnt_angle_diff;
     double stiffness_lin_x_axis_data;
     double stiffness_lin_y_axis_data;
     double stiffness_lin_z_axis_data;
 
-    double damping_lin_x_axis_data;
-    double damping_lin_y_axis_data;
-    double damping_lin_z_axis_data;
+    double stiffness_lin_vel_x_axis_data;
+    double stiffness_lin_vel_y_axis_data;
+    double stiffness_lin_vel_z_axis_data;
+
+    double integral_lin_x_axis_data;
+    double integral_lin_y_axis_data;
+    double integral_lin_z_axis_data;
+    double integral_clamping_limit;
+
+    double error_sum_lin_x_axis_data;
+    double error_sum_lin_y_axis_data;
+    double error_sum_lin_z_axis_data;
+    double error_sum_lin_axis_data;
 
     double stiffness_roll_axis_data;
     double stiffness_pitch_axis_data;
@@ -364,6 +380,10 @@ namespace motion_specification_action
       bool &reach_pre_configuration_joint_angles,
       KDL::JntArray &pre_configuration_jnt_positions_kdl_array,
       kinova_mediator &kinova_arm_mediator);
+    void saturate_integral_error_sum(
+      double* error_sum_lin_axis_data,
+      const double* integral_clamping_limit
+    );
     // void handle_signal(int sig);
 
     void kinova_feedback(kinova_mediator &kinova_arm_mediator,
@@ -458,9 +478,16 @@ namespace motion_specification_action
         const double &stiffness_lin_x_axis_data,
         const double &stiffness_lin_y_axis_data,
         const double &stiffness_lin_z_axis_data,
-        const double &damping_lin_x_axis_data,
-        const double &damping_lin_y_axis_data,
-        const double &damping_lin_z_axis_data,
+        const double &stiffness_lin_vel_x_axis_data,
+        const double &stiffness_lin_vel_y_axis_data,
+        const double &stiffness_lin_vel_z_axis_data,
+        const double &integral_lin_x_axis_data,
+        const double &integral_lin_y_axis_data,
+        const double &integral_lin_z_axis_data,
+        double &error_sum_lin_x_axis_data,
+        double &error_sum_lin_y_axis_data,
+        double &error_sum_lin_z_axis_data,
+        const double &integral_clamping_limit,
         const double &stiffness_roll_axis_data,
         const double &stiffness_pitch_axis_data,
         const double &stiffness_yaw_axis_data,
