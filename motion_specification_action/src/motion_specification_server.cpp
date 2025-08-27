@@ -24,6 +24,7 @@ namespace motion_specification_action
         frequency_of_state_publish(10),
         gravitational_acceleration{0.0f, 0.0f, -9.81f},
         time_period_of_complete_controller_cycle_data(0.0),
+        control_dt(0.001),
         desired_quat_FrameName{0.0, 0.0, 0.0, 1.0},
         measured_quat_FrameName{0.0, 0.0, 0.0, 1.0},
         measured_lin_pos_x_axis_data(0.0),
@@ -61,6 +62,9 @@ namespace motion_specification_action
         apply_ee_torque_x_axis_data(0.0),
         apply_ee_torque_y_axis_data(0.0),
         apply_ee_torque_z_axis_data(0.0),
+        apply_forearm_z_axis_torque(0.0),
+        apply_forearm_y_axis_torque(0.0),
+        apply_forearm_x_axis_torque(0.0),
         measured_roll_data(0.0),
         measured_pitch_data(0.0),
         measured_yaw_data(0.0),
@@ -75,6 +79,7 @@ namespace motion_specification_action
         pre_configuration_joint_angles_reached(false),
         pre_condition_exists(false),
         post_condition_exists(false),
+        abort_motion_execution(false),
         pre_configuration_joint_angles_tolerance_radians(0.1),
         pre_configuration_max_deviation_radians(0.0),
         pre_configuration_joint_angles_radians{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
@@ -314,6 +319,57 @@ namespace motion_specification_action
     kinova_arm_mediator.get_joint_state(jnt_positions,
                                         jnt_velocities,
                                         jnt_torques);
+  }
+
+  void MotionSpecificationActionServer::get_ForeArm_Link_wrench(const KDL::JntArray &jnt_positions,
+                                                                std::shared_ptr<KDL::ChainFkSolverPos_recursive> &fkSolverPos,
+                                                                double apply_forearm_x_axis_torque,
+                                                                double apply_forearm_y_axis_torque,
+                                                                double apply_forearm_z_axis_torque)
+  {
+    KDL::Frame measured_ForeArm_Link_Pose_BL;
+    fkSolverPos->JntToCart(jnt_positions, measured_ForeArm_Link_Pose_BL, 3);
+
+    // get y-axis of link0 in base_link frame
+    KDL::Vector measured_ForeArm_Link_y_axis_BL = measured_ForeArm_Link_Pose_BL.M.UnitY();
+    KDL::Vector base_link_x_axis(1.0, 0.0, 0.0);
+    double angle = std::acos(KDL::dot(measured_ForeArm_Link_y_axis_BL, base_link_x_axis));
+
+    KDL::Vector cross_product = base_link_x_axis * measured_ForeArm_Link_y_axis_BL;
+    if (cross_product.z() < 0) {  // If cross product points down, angle is clockwise
+        angle = -angle;
+    }
+
+    // std::cout << "Angle between y-axis of foreArm link and base link x-axis: "
+    //           << angle * 180.0 / M_PI << " degrees" << std::endl;
+
+    KDL::Vector torque_axis = KDL::Vector::Zero();
+    KDL::Vector torque_vector = KDL::Vector::Zero();
+
+    double stiffness = STIFFNESS_FOREARM_JNT_LIMIT;
+    double desired_angle = FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG * M_PI/180.0;
+    double deadband = DEADBAND_FOREARM_IN_DEG * M_PI/180.0;       // ±15 degrees
+    double error = 0;
+    if (angle < (desired_angle - deadband)) {
+        error = (desired_angle - deadband) - angle;
+    } else if (angle > (desired_angle + deadband)) {
+        error = (desired_angle + deadband) - angle;
+    } else {
+        error = 0; // Within deadband
+    }
+    double torque_magnitude = stiffness * error;
+
+    // std::cout << "Torque magnitude: " << torque_magnitude << std::endl;
+
+    // Cross product to get torque axis perpendicular to both vectors
+    torque_axis = base_link_x_axis * measured_ForeArm_Link_y_axis_BL; 
+    // std::cout << "Torque axis: [" << torque_axis.x() << ", " << torque_axis.y() << ", " << torque_axis.z() << "]" << std::endl;
+
+    torque_vector = torque_magnitude * torque_axis;
+
+    apply_forearm_x_axis_torque = torque_vector.x();
+    apply_forearm_y_axis_torque = torque_vector.y();
+    apply_forearm_z_axis_torque = torque_vector.z();
   }
 
   void MotionSpecificationActionServer::get_end_effector_pose_and_twist(KDL::JntArrayVel &jnt_velocity,
@@ -770,7 +826,7 @@ namespace motion_specification_action
           if (!constraint_satisfied)
           {
             int disjunction_id = motion_specification_params_object[arm_name][condition_type_str]["constraints"][i]["disjunction_id"].as<int>();
-            disjunction_satisfaction_vector[disjunction_id] = false;
+            disjunction_satisfaction_vector[disjunction_id-1] = false;
           }
           if (i == condition_constraint_count)
           {
@@ -897,7 +953,6 @@ namespace motion_specification_action
           {
             std::string constraint_str = constraint_value_list[k].as<std::string>("");
             if (!(constraint_str == "None"))
-
             {
               desired_quat_FrameName[k] = constraint_value_list[k].as<double>();
             }
@@ -917,13 +972,32 @@ namespace motion_specification_action
   }
 }
 
+  void MotionSpecificationActionServer::saturate_integral_error_sum(double *value, const double *integral_clamping_limit)
+  {
+    if (*value > *integral_clamping_limit)
+    {
+      *value = *integral_clamping_limit;
+    }
+    else if (*value < -*integral_clamping_limit)
+    {
+      *value = -*integral_clamping_limit;
+    }
+  }
+
   void MotionSpecificationActionServer::get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
       const double &stiffness_lin_x_axis_data,
       const double &stiffness_lin_y_axis_data,
       const double &stiffness_lin_z_axis_data,
-      const double &damping_lin_x_axis_data,
-      const double &damping_lin_y_axis_data,
-      const double &damping_lin_z_axis_data,
+      const double &stiffness_lin_vel_x_axis_data,
+      const double &stiffness_lin_vel_y_axis_data,
+      const double &stiffness_lin_vel_z_axis_data,
+      const double &integral_lin_x_axis_data,
+      const double &integral_lin_y_axis_data,
+      const double &integral_lin_z_axis_data,
+      double &error_sum_lin_x_axis_data,
+      double &error_sum_lin_y_axis_data,
+      double &error_sum_lin_z_axis_data,
+      const double &integral_clamping_limit,
       const double &stiffness_roll_axis_data,
       const double &stiffness_pitch_axis_data,
       const double &stiffness_yaw_axis_data,
@@ -981,15 +1055,28 @@ namespace motion_specification_action
               {
                 if (k == 0)
                 {
-                  apply_ee_force_x_axis_data += stiffness_lin_x_axis_data * (lin_pos_sp_x_axis_data - measured_lin_pos_x_axis_data);
+                  auto e_pos_x = (lin_pos_sp_x_axis_data - measured_lin_pos_x_axis_data);
+                  apply_ee_force_x_axis_data += stiffness_lin_x_axis_data * e_pos_x;
+                  error_sum_lin_x_axis_data += e_pos_x * control_dt;
+                  saturate_integral_error_sum(&error_sum_lin_x_axis_data, &integral_clamping_limit);
+                  apply_ee_force_x_axis_data += integral_lin_x_axis_data * error_sum_lin_x_axis_data;
+                  std::cout << "p signal x: " << stiffness_lin_x_axis_data * e_pos_x << ", i signal x: " << integral_lin_x_axis_data * error_sum_lin_x_axis_data << std::endl;
                 }
                 else if (k == 1)
                 {
-                  apply_ee_force_y_axis_data += stiffness_lin_y_axis_data * (lin_pos_sp_y_axis_data - measured_lin_pos_y_axis_data);
+                  auto e_pos_y = (lin_pos_sp_y_axis_data - measured_lin_pos_y_axis_data);
+                  apply_ee_force_y_axis_data += stiffness_lin_y_axis_data * e_pos_y;
+                  error_sum_lin_y_axis_data += e_pos_y * control_dt;
+                  saturate_integral_error_sum(&error_sum_lin_y_axis_data, &integral_clamping_limit);
+                  apply_ee_force_y_axis_data += integral_lin_y_axis_data * error_sum_lin_y_axis_data;
                 }
                 else if (k == 2)
                 {
-                  apply_ee_force_z_axis_data += stiffness_lin_z_axis_data * (lin_pos_sp_z_axis_data - measured_lin_pos_z_axis_data);
+                  auto e_pos_z = (lin_pos_sp_z_axis_data - measured_lin_pos_z_axis_data);
+                  apply_ee_force_z_axis_data += stiffness_lin_z_axis_data * e_pos_z;
+                  error_sum_lin_z_axis_data += e_pos_z * control_dt;
+                  saturate_integral_error_sum(&error_sum_lin_z_axis_data, &integral_clamping_limit);
+                  apply_ee_force_z_axis_data += integral_lin_z_axis_data * error_sum_lin_z_axis_data;
                 }
               }
             }
@@ -1003,15 +1090,15 @@ namespace motion_specification_action
               {
                 if (k == 0)
                 {
-                  apply_ee_force_x_axis_data += damping_lin_x_axis_data * (lin_vel_sp_x_axis_data - measured_lin_vel_x_axis_data);
+                  apply_ee_force_x_axis_data += stiffness_lin_vel_x_axis_data * (lin_vel_sp_x_axis_data - measured_lin_vel_x_axis_data);
                 }
                 else if (k == 1)
                 {
-                  apply_ee_force_y_axis_data += damping_lin_y_axis_data * (lin_vel_sp_y_axis_data - measured_lin_vel_y_axis_data);
+                  apply_ee_force_y_axis_data += stiffness_lin_vel_y_axis_data * (lin_vel_sp_y_axis_data - measured_lin_vel_y_axis_data);
                 }
                 else if (k == 2)
                 {
-                  apply_ee_force_z_axis_data += damping_lin_z_axis_data * (lin_vel_sp_z_axis_data - measured_lin_vel_z_axis_data);
+                  apply_ee_force_z_axis_data += stiffness_lin_vel_z_axis_data * (lin_vel_sp_z_axis_data - measured_lin_vel_z_axis_data);
                 }
               }
             }
@@ -1092,6 +1179,10 @@ namespace motion_specification_action
       kdl_parser::treeFromFile(urdf_file_path, kinematic_tree);
       kinematic_tree.getChain("base_link", "EndEffector_Link", chain_urdf);
       NUM_LINKS = chain_urdf.getNrOfSegments();
+      for (unsigned int i = 0; i < NUM_LINKS; i++)
+      {
+        RCLCPP_INFO(this->get_logger(), "Link %d: %s", i, chain_urdf.getSegment(i).getName().c_str());
+      }
     }
     catch (const std::exception &e)
     {
@@ -1113,11 +1204,17 @@ namespace motion_specification_action
     {
       const auto &arm_params = motion_specification_params_object[arm_name];
 
+      reach_pre_configuration_joint_angles = arm_params["reach_pre_configuration_joint_angles"].as<bool>();
+
+      if (!reach_pre_configuration_joint_angles)
+      {
+        RCLCPP_INFO(this->get_logger(), "Skipping reading pre-configuration joint angles as it is disabled");
+        return;
+      }
       pre_configuration_joint_angles_tolerance_radians = kinova_arm_mediator.DEG_TO_RAD(arm_params["pre_configuration_joint_angles_tolerance_deg"].as<double>());
 
       pre_configuration_max_deviation_radians = kinova_arm_mediator.DEG_TO_RAD(arm_params["pre_configuration_max_deviation_deg"].as<double>());
 
-      reach_pre_configuration_joint_angles = arm_params["reach_pre_configuration_joint_angles"].as<bool>();
 
       pre_configuration_joint_angles_radians.clear();
       pre_configuration_joint_angles_radians.reserve(kinova_constants::NUMBER_OF_JOINTS);
@@ -1174,9 +1271,14 @@ namespace motion_specification_action
       STIFFNESS_GAIN_Y = config_file_object[arm_name]["STIFFNESS_GAIN_Y"].as<double>();
       STIFFNESS_GAIN_Z = config_file_object[arm_name]["STIFFNESS_GAIN_Z"].as<double>();
 
-      DAMPING_GAIN_X = config_file_object[arm_name]["DAMPING_GAIN_X"].as<double>();
-      DAMPING_GAIN_Y = config_file_object[arm_name]["DAMPING_GAIN_Y"].as<double>();
-      DAMPING_GAIN_Z = config_file_object[arm_name]["DAMPING_GAIN_Z"].as<double>();
+      STIFFNESS_GAIN_X_VELOCITY = config_file_object[arm_name]["STIFFNESS_GAIN_X_VELOCITY"].as<double>();
+      STIFFNESS_GAIN_Y_VELOCITY = config_file_object[arm_name]["STIFFNESS_GAIN_Y_VELOCITY"].as<double>();
+      STIFFNESS_GAIN_Z_VELOCITY = config_file_object[arm_name]["STIFFNESS_GAIN_Z_VELOCITY"].as<double>();
+
+      INTEGRAL_GAIN_X = config_file_object[arm_name]["INTEGRAL_GAIN_X"].as<double>();
+      INTEGRAL_GAIN_Y = config_file_object[arm_name]["INTEGRAL_GAIN_Y"].as<double>();
+      INTEGRAL_GAIN_Z = config_file_object[arm_name]["INTEGRAL_GAIN_Z"].as<double>();
+      INTEGRAL_CLAMPING_LIMIT = config_file_object[arm_name]["INTEGRAL_CLAMPING_LIMIT"].as<double>();
 
       STIFFNESS_GAIN_ROLL = config_file_object[arm_name]["STIFFNESS_GAIN_ROLL"].as<double>();
       STIFFNESS_GAIN_PITCH = config_file_object[arm_name]["STIFFNESS_GAIN_PITCH"].as<double>();
@@ -1184,23 +1286,40 @@ namespace motion_specification_action
       STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL = config_file_object[arm_name]["STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL"].as<double>();
       STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG = config_file_object[arm_name]["STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG"].as<double>();
 
+      DEADBAND_FOREARM_IN_DEG = config_file_object[arm_name]["DEADBAND_FOREARM_IN_DEG"].as<double>();
+      FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG = config_file_object[arm_name]["FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG"].as<double>();
+      STIFFNESS_FOREARM_JNT_LIMIT = config_file_object[arm_name]["STIFFNESS_FOREARM_JNT_LIMIT"].as<double>();
+
       gravitational_acceleration = config_file_object[arm_name]["gravitational_acceleration"].as<std::vector<float>>();
       WRENCH_THRESHOLD_LINEAR = config_file_object[arm_name]["WRENCH_THRESHOLD_LINEAR"].as<double>();
       WRENCH_THRESHOLD_ROTATIONAL = config_file_object[arm_name]["WRENCH_THRESHOLD_ROTATIONAL"].as<double>();
-      JOINT_TORQUE_THRESHOLD = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD"].as<double>();
-      JOINT_TORQUE_THRESHOLD_PRE_JNT_CONFIG = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD_PRE_JNT_CONFIG"].as<double>();
+
+      JOINT_TORQUE_THRESHOLD_UNTIL_JNT_3 = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD_UNTIL_JNT_3"].as<double>();
+      JOINT_TORQUE_THRESHOLD_FROM_JNT_4_TO_7 = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD_FROM_JNT_4_TO_7"].as<double>();
 
       JOINT_1_ANGLE_LIMIT_DEG = config_file_object[arm_name]["JOINT_1_ANGLE_LIMIT_DEG"].as<double>();
       JOINT_3_ANGLE_LIMIT_DEG = config_file_object[arm_name]["JOINT_3_ANGLE_LIMIT_DEG"].as<double>();
       JOINT_5_ANGLE_LIMIT_DEG = config_file_object[arm_name]["JOINT_5_ANGLE_LIMIT_DEG"].as<double>();
 
+      DESIRED_TIME_STEP = config_file_object[arm_name]["DESIRED_TIME_STEP"].as<double>();
+      control_dt = DESIRED_TIME_STEP;
+
       stiffness_lin_x_axis_data = STIFFNESS_GAIN_X;
       stiffness_lin_y_axis_data = STIFFNESS_GAIN_Y;
       stiffness_lin_z_axis_data = STIFFNESS_GAIN_Z;
 
-      damping_lin_x_axis_data = DAMPING_GAIN_X;
-      damping_lin_y_axis_data = DAMPING_GAIN_Y;
-      damping_lin_z_axis_data = DAMPING_GAIN_Z;
+      stiffness_lin_vel_x_axis_data = STIFFNESS_GAIN_X_VELOCITY;
+      stiffness_lin_vel_y_axis_data = STIFFNESS_GAIN_Y_VELOCITY;
+      stiffness_lin_vel_z_axis_data = STIFFNESS_GAIN_Z_VELOCITY;
+
+      integral_lin_x_axis_data = INTEGRAL_GAIN_X;
+      integral_lin_y_axis_data = INTEGRAL_GAIN_Y;
+      integral_lin_z_axis_data = INTEGRAL_GAIN_Z;
+
+      error_sum_lin_x_axis_data = 0.0;
+      error_sum_lin_y_axis_data = 0.0;
+      error_sum_lin_z_axis_data = 0.0;
+      integral_clamping_limit = INTEGRAL_CLAMPING_LIMIT;
 
       stiffness_roll_axis_data = STIFFNESS_GAIN_ROLL;
       stiffness_pitch_axis_data = STIFFNESS_GAIN_PITCH;
@@ -1225,14 +1344,14 @@ namespace motion_specification_action
 
   void MotionSpecificationActionServer::control_loop()
   {
-    rclcpp::Rate loop_rate(1000); // Control loop at 1kHz
+    rclcpp::Rate loop_rate(1/control_dt); // Control loop is running at 1kHz
     kinova_setup_communication(robot_to_control, kinova_arm_mediator);
 
     while (!configuration_file_read && rclcpp::ok()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Small delay
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    auto previous_time = std::chrono::high_resolution_clock::now();
+    auto previous_state_publish_time = std::chrono::high_resolution_clock::now();
 
     if (rclcpp::ok() && control_loop_active_ && flag == 0)
     {
@@ -1281,11 +1400,12 @@ namespace motion_specification_action
       measured_endEffPose_FrameName.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
 
       auto current_time = std::chrono::high_resolution_clock::now();
-      auto time_since_last_publish = std::chrono::duration<double>(current_time-previous_time);
+      auto time_since_last_publish = std::chrono::duration<double>(current_time-previous_state_publish_time);
       if (time_since_last_publish.count() > state_publish_time_step)
       {
         publish_joint_states(jnt_positions);
         publish_ee_pose(measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data, measured_quat_FrameName, frame_name);
+        previous_state_publish_time = current_time;
       };
 
       // Helper lambda to normalize angle differences to [-pi, pi]
@@ -1310,13 +1430,13 @@ namespace motion_specification_action
             std::cout << "[INFO] Pre-configuration check failed: joint " << i 
                       << " deviates by " << jnt_angle_diff << " rad." << std::endl;
             reach_pre_configuration_joint_angles = false;
+            abort_motion_execution = true;
             break;
           }
         }
 
         if (reach_pre_configuration_joint_angles)
         {
-          std::cout << "Reaching pre-configuration joint angles..." << std::endl;
           calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                       jnt_velocity, jd_qd, xdd,
                                       xdd_minus_jd_qd, jnt_accelerations,
@@ -1342,12 +1462,10 @@ namespace motion_specification_action
           if (jnt_angle_within_tolerance_cnt == kinova_constants::NUMBER_OF_JOINTS)
           {
             pre_configuration_joint_angles_reached = true;
-            reach_pre_configuration_joint_angles = false;
-            std::cout << "Pre-configuration joint angles reached." << std::endl;
           }
         }
       }
-      else if(goal_accepted_and_executing)
+      else if(goal_accepted_and_executing && !reach_pre_configuration_joint_angles)
       {
         // check if any motion specification satisfies pre condition
         if (pre_condition_exists && !pre_condition_satisfied)
@@ -1440,9 +1558,16 @@ namespace motion_specification_action
                 stiffness_lin_x_axis_data,
                 stiffness_lin_y_axis_data,
                 stiffness_lin_z_axis_data,
-                damping_lin_x_axis_data,
-                damping_lin_y_axis_data,
-                damping_lin_z_axis_data,
+                stiffness_lin_vel_x_axis_data,
+                stiffness_lin_vel_y_axis_data,
+                stiffness_lin_vel_z_axis_data,
+                integral_lin_x_axis_data,
+                integral_lin_y_axis_data,
+                integral_lin_z_axis_data,
+                error_sum_lin_z_axis_data,
+                error_sum_lin_y_axis_data,
+                error_sum_lin_x_axis_data,
+                integral_clamping_limit,
                 stiffness_roll_axis_data,
                 stiffness_pitch_axis_data,
                 stiffness_yaw_axis_data,
@@ -1474,6 +1599,8 @@ namespace motion_specification_action
                 angle_axis_diff_FrameName,
                 motion_specification_params_object,
                 arm_name);
+
+            get_ForeArm_Link_wrench(jnt_positions, fkSolverPos, apply_forearm_x_axis_torque, apply_forearm_y_axis_torque, apply_forearm_z_axis_torque);
           }
         }
       }
@@ -1511,10 +1638,14 @@ namespace motion_specification_action
         linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(0) = -apply_ee_force_x_axis_data;
         linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(1) = -apply_ee_force_y_axis_data;
         linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(2) = -apply_ee_force_z_axis_data;
-        // TODO: apply only when a per condition constraint exists for orientation
         linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(0) = -apply_ee_torque_x_axis_data;
         linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(1) = -apply_ee_torque_y_axis_data;
         linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(2) = -apply_ee_torque_z_axis_data;
+
+        // Apply link torque to ForeArm_Link to keep it upright
+        linkWrenches_FrameName[3].torque(0) = apply_forearm_x_axis_torque;
+        linkWrenches_FrameName[3].torque(1) = apply_forearm_y_axis_torque;
+        linkWrenches_FrameName[3].torque(2) = apply_forearm_z_axis_torque;
 
         // thresholding in cartesian space of the end effector
         for (int i = 0; i < 3; i++)
@@ -1536,11 +1667,20 @@ namespace motion_specification_action
           {
             linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::max(-WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i));
           }
+          if (linkWrenches_FrameName[3].torque(i) > 0.0)
+          {
+            linkWrenches_FrameName[3].torque(i) = std::min(1.0, linkWrenches_FrameName[3].torque(i));
+          }
+          else
+          {
+            linkWrenches_FrameName[3].torque(i) = std::max(-1.0, linkWrenches_FrameName[3].torque(i));
+          }
         };
 
         // LinkWrenches are calculated in BL frame. As RNE solver requires them in EE frame, the wrenches are transformed from BL to EE frame
         linkWrenches_EE[NUM_LINKS - 1].force = measured_endEffPose_FrameName.M.Inverse() * linkWrenches_FrameName[NUM_LINKS - 1].force;
         linkWrenches_EE[NUM_LINKS - 1].torque = measured_endEffPose_FrameName.M.Inverse() * linkWrenches_FrameName[NUM_LINKS - 1].torque;
+        linkWrenches_EE[3].torque = measured_endEffPose_FrameName.M.Inverse() * linkWrenches_FrameName[3].torque;
 
         calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                     jnt_velocity, jd_qd, xdd,
@@ -1549,18 +1689,23 @@ namespace motion_specification_action
                                     linkWrenches_EE, jnt_torques_cmd);
       }
 
-      if (reach_pre_configuration_joint_angles)
-      {
-        joint_torque_threshold = JOINT_TORQUE_THRESHOLD_PRE_JNT_CONFIG;
-      }
-      else
-      {
-        joint_torque_threshold = JOINT_TORQUE_THRESHOLD;
-      }
-
       // thresholding the jnt_torques_cmd before sending to the robot
       for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
       {
+        if (i < 3)
+        {
+          joint_torque_threshold = JOINT_TORQUE_THRESHOLD_UNTIL_JNT_3;
+        }
+        else
+        {
+          joint_torque_threshold = JOINT_TORQUE_THRESHOLD_FROM_JNT_4_TO_7;
+        }
+        if (std::abs(jnt_torques_cmd(i)) > joint_torque_threshold)
+        {
+          std::cout << "[WARNING] Joint (starting from 1): [" << i + 1 << "] torque command " << jnt_torques_cmd(i)
+                    << " Nm exceeds threshold of " << joint_torque_threshold
+                    << " Nm. Limiting torque command." << std::endl;
+        }
         if (jnt_torques_cmd(i) > 0.0)
         {
           jnt_torques_cmd(i) = std::min(joint_torque_threshold, jnt_torques_cmd(i));
@@ -1576,7 +1721,10 @@ namespace motion_specification_action
         double angle_deg = kinova_arm_mediator.RAD_TO_DEG(jnt_positions(joint_index)); // no need to normalize, as it is done in kinova mediator for joints 1,3,5
         if (std::abs(angle_deg) > angle_limit_deg) {
             double direction = angle_deg > 0.0 ? 1.0 : -1.0;
-            jnt_torques_cmd(joint_index) = 1.5 * (direction * angle_limit_deg - angle_deg);
+            jnt_torques_cmd(joint_index) = 4.0 * (direction * angle_limit_deg - angle_deg);
+            std::cout << "[WARNING] Joint " << joint_index + 1 << " angle " << angle_deg 
+                      << " deg exceeds limit of " << angle_limit_deg 
+                      << " deg. Applying resisting torque: " << jnt_torques_cmd(joint_index) << " Nm." << std::endl;
         }
       };
 
@@ -1746,6 +1894,22 @@ namespace motion_specification_action
         result->motion_successful = true;
         goal_handle->succeed(result);
         RCLCPP_INFO(this->get_logger(), "Goal succeeded");
+        return;
+      }
+      if (pre_configuration_joint_angles_reached && reach_pre_configuration_joint_angles)
+      {
+        goal_accepted_and_executing = false;
+        result->motion_successful = true;
+        goal_handle->succeed(result);
+        RCLCPP_INFO(this->get_logger(), "Pre-configuration joint angles reached. Now waiting for any motion specification.");
+        reach_pre_configuration_joint_angles = false;
+      }
+      if (abort_motion_execution)
+      {
+        result->motion_successful = false;
+        goal_handle->abort(result);
+        RCLCPP_INFO(this->get_logger(), "Goal aborted due to abort signal.");
+        goal_accepted_and_executing = false;
         return;
       }
 

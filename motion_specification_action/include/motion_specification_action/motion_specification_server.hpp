@@ -127,14 +127,18 @@ namespace motion_specification_action
     // initialise data by reading from the config file
     double WRENCH_THRESHOLD_LINEAR;
     double WRENCH_THRESHOLD_ROTATIONAL;
-    double JOINT_TORQUE_THRESHOLD;
-    double JOINT_TORQUE_THRESHOLD_PRE_JNT_CONFIG;
+    double JOINT_TORQUE_THRESHOLD_UNTIL_JNT_3;
+    double JOINT_TORQUE_THRESHOLD_FROM_JNT_4_TO_7;
     double STIFFNESS_GAIN_X;
     double STIFFNESS_GAIN_Y;
     double STIFFNESS_GAIN_Z;
     double STIFFNESS_GAIN_X_VELOCITY;
     double STIFFNESS_GAIN_Y_VELOCITY;
     double STIFFNESS_GAIN_Z_VELOCITY;
+    double DEADBAND_FOREARM_IN_DEG;
+    double FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG;
+    double STIFFNESS_FOREARM_JNT_LIMIT;
+
     double INTEGRAL_GAIN_X;
     double INTEGRAL_GAIN_Y;
     double INTEGRAL_GAIN_Z;
@@ -144,6 +148,7 @@ namespace motion_specification_action
     double STIFFNESS_GAIN_YAW;
     double STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
     double STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG;
+    double DESIRED_TIME_STEP;
     double JOINT_1_ANGLE_LIMIT_DEG;
     double JOINT_3_ANGLE_LIMIT_DEG;
     double JOINT_5_ANGLE_LIMIT_DEG;
@@ -302,6 +307,10 @@ namespace motion_specification_action
     double apply_ee_force_y_axis_data;
     double apply_ee_force_z_axis_data;
 
+    double apply_forearm_x_axis_torque;
+    double apply_forearm_y_axis_torque;
+    double apply_forearm_z_axis_torque;
+
     double apply_ee_torque_x_axis_data;
     double apply_ee_torque_y_axis_data;
     double apply_ee_torque_z_axis_data;
@@ -390,6 +399,12 @@ namespace motion_specification_action
                          KDL::JntArray &jnt_positions,
                          KDL::JntArray &jnt_velocities,
                          KDL::JntArray &jnt_torques);
+
+    void get_ForeArm_Link_wrench(const KDL::JntArray &jnt_positions,
+                                std::shared_ptr<KDL::ChainFkSolverPos_recursive> &fkSolverPos,
+                                double apply_forearm_x_axis_torque,
+                                double apply_forearm_y_axis_torque,
+                                double apply_forearm_z_axis_torque);
 
     void get_end_effector_pose_and_twist(KDL::JntArrayVel &jnt_velocity,
                                          const KDL::JntArray &jnt_positions,
