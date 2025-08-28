@@ -132,10 +132,14 @@ namespace motion_specification_action
     double STIFFNESS_GAIN_X;
     double STIFFNESS_GAIN_Y;
     double STIFFNESS_GAIN_Z;
+    double DAMPING_GAIN_X;
+    double DAMPING_GAIN_Y;
+    double DAMPING_GAIN_Z;
     double STIFFNESS_GAIN_X_VELOCITY;
     double STIFFNESS_GAIN_Y_VELOCITY;
     double STIFFNESS_GAIN_Z_VELOCITY;
     double DEADBAND_FOREARM_IN_DEG;
+    double TORQUE_MAGNITUDE_LIMIT_FOREARM_LINK;
     double FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG;
     double STIFFNESS_FOREARM_JNT_LIMIT;
 
@@ -211,6 +215,7 @@ namespace motion_specification_action
     // end effector Pose
     KDL::Frame measured_endEffPose_BL;
     KDL::Frame measured_endEffPose_FrameName;
+    KDL::Frame measured_ForeArm_Link_Pose_BL;
     KDL::FrameVel measured_endEffTwist_BL;
     KDL::FrameVel measured_endEffTwist_FrameName;
 
@@ -253,6 +258,14 @@ namespace motion_specification_action
     double integral_lin_y_axis_data;
     double integral_lin_z_axis_data;
     double integral_clamping_limit;
+
+    double damping_gain_x_axis_data;
+    double damping_gain_y_axis_data;
+    double damping_gain_z_axis_data;
+
+    double previous_error_x_pos;
+    double previous_error_y_pos;
+    double previous_error_z_pos;
 
     double error_sum_lin_x_axis_data;
     double error_sum_lin_y_axis_data;
@@ -401,10 +414,11 @@ namespace motion_specification_action
                          KDL::JntArray &jnt_torques);
 
     void get_ForeArm_Link_wrench(const KDL::JntArray &jnt_positions,
+                                KDL::Frame &measured_ForeArm_Link_Pose_BL,
                                 std::shared_ptr<KDL::ChainFkSolverPos_recursive> &fkSolverPos,
-                                double apply_forearm_x_axis_torque,
-                                double apply_forearm_y_axis_torque,
-                                double apply_forearm_z_axis_torque);
+                                double &apply_forearm_x_axis_torque,
+                                double &apply_forearm_y_axis_torque,
+                                double &apply_forearm_z_axis_torque);
 
     void get_end_effector_pose_and_twist(KDL::JntArrayVel &jnt_velocity,
                                          const KDL::JntArray &jnt_positions,
@@ -489,6 +503,18 @@ namespace motion_specification_action
       const YAML::Node &motion_specification_params_object,
       const std::string &arm_name);
 
+  void pid_controller(
+      const double &stiffness_gain,
+      const double &integral_gain,
+      const double &damping_gain,
+      double &previous_error,
+      const double &control_dt,
+      double &error_sum,
+      const double &integral_clamping_limit,
+      const double &measured_data,
+      const double &setpoint,
+      double &pid_signal);
+
     void get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
         const double &stiffness_lin_x_axis_data,
         const double &stiffness_lin_y_axis_data,
@@ -499,6 +525,13 @@ namespace motion_specification_action
         const double &integral_lin_x_axis_data,
         const double &integral_lin_y_axis_data,
         const double &integral_lin_z_axis_data,
+        const double &damping_gain_x_axis_data,
+        const double &damping_gain_y_axis_data,
+        const double &damping_gain_z_axis_data,
+        double &previous_error_x_pos,
+        double &previous_error_y_pos,
+        double &previous_error_z_pos,
+        const double &control_dt,
         double &error_sum_lin_x_axis_data,
         double &error_sum_lin_y_axis_data,
         double &error_sum_lin_z_axis_data,
