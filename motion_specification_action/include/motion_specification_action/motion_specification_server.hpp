@@ -135,6 +135,7 @@ namespace motion_specification_action
     double DAMPING_GAIN_X;
     double DAMPING_GAIN_Y;
     double DAMPING_GAIN_Z;
+    double DEADZONE_POS_CTRL;
     double STIFFNESS_GAIN_X_VELOCITY;
     double STIFFNESS_GAIN_Y_VELOCITY;
     double STIFFNESS_GAIN_Z_VELOCITY;
@@ -147,6 +148,7 @@ namespace motion_specification_action
     double INTEGRAL_GAIN_Y;
     double INTEGRAL_GAIN_Z;
     double INTEGRAL_CLAMPING_LIMIT;
+    double INTEGRAL_DECAY_RATE;
     double STIFFNESS_GAIN_ROLL;
     double STIFFNESS_GAIN_PITCH;
     double STIFFNESS_GAIN_YAW;
@@ -262,6 +264,23 @@ namespace motion_specification_action
     double damping_gain_x_axis_data;
     double damping_gain_y_axis_data;
     double damping_gain_z_axis_data;
+
+    double p_signal_x;
+    double i_signal_x;
+    double d_signal_x;
+    double p_signal_y;
+    double i_signal_y;
+    double d_signal_y;
+    double p_signal_z;
+    double i_signal_z;
+    double d_signal_z;
+    double dead_zone_limit;
+    double integral_decay_rate;
+
+    double forearm_link_y_axis_angle_sp;
+    double deadband_forearm_y_axis_angle;
+    double torque_limit_forearm_link;
+    double stiffness_forearm_y_axis_angle;
 
     double previous_error_x_pos;
     double previous_error_y_pos;
@@ -418,7 +437,11 @@ namespace motion_specification_action
                                 std::shared_ptr<KDL::ChainFkSolverPos_recursive> &fkSolverPos,
                                 double &apply_forearm_x_axis_torque,
                                 double &apply_forearm_y_axis_torque,
-                                double &apply_forearm_z_axis_torque);
+                                double &apply_forearm_z_axis_torque,
+                                double &stiffness_forearm_y_axis_angle,
+                                const double &forearm_link_y_axis_angle_sp,
+                                const double &deadband_forearm_y_axis_angle,
+                                const double &torque_limit_forearm_link);
 
     void get_end_effector_pose_and_twist(KDL::JntArrayVel &jnt_velocity,
                                          const KDL::JntArray &jnt_positions,
@@ -503,17 +526,22 @@ namespace motion_specification_action
       const YAML::Node &motion_specification_params_object,
       const std::string &arm_name);
 
-  void pid_controller(
-      const double &stiffness_gain,
-      const double &integral_gain,
-      const double &damping_gain,
-      double &previous_error,
-      const double &control_dt,
-      double &error_sum,
-      const double &integral_clamping_limit,
-      const double &measured_data,
-      const double &setpoint,
-      double &pid_signal);
+    void pid_controller(
+        const double &stiffness_gain,
+        const double &integral_gain,
+        const double &damping_gain,
+        double &previous_error,
+        const double &control_dt,
+        double &error_sum,
+        const double &dead_zone_limit,
+        const double &integral_decay_rate,
+        const double &integral_clamping_limit,
+        const double &measured_data,
+        double &p_signal,
+        double &i_signal,
+        double &d_signal,
+        const double &setpoint,
+        double &pid_signal);
 
     void get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
         const double &stiffness_lin_x_axis_data,
@@ -554,6 +582,17 @@ namespace motion_specification_action
         const double &force_to_apply_x_axis,
         const double &force_to_apply_y_axis,
         const double &force_to_apply_z_axis,
+        const double &dead_zone_limit,
+        const double &integral_decay_rate,
+        double &p_signal_x,
+        double &i_signal_x,
+        double &d_signal_x,
+        double &p_signal_y,
+        double &i_signal_y,
+        double &d_signal_y,
+        double &p_signal_z,
+        double &i_signal_z,
+        double &d_signal_z,
         const std::array<double, 4> &desired_quat_FrameName,
         double &apply_ee_force_x_axis_data,
         double &apply_ee_force_y_axis_data,
