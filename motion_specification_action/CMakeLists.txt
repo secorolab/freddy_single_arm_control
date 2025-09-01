@@ -120,6 +120,15 @@ install(
   DESTINATION share/${PROJECT_NAME}/urdf
 )
 
+# Create log directory if it doesn't exist
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/log_files)
+
+# Install the log folder
+install(
+  DIRECTORY log_files/
+  DESTINATION share/${PROJECT_NAME}/log_files
+)
+
 # =============================
 # Linting & Testing
 # =============================

@@ -107,12 +107,14 @@ namespace motion_specification_action
     std::chrono::duration<double> transform_timeout_duration;
     std::chrono::high_resolution_clock::time_point ms_start_time;
     bool transform_available;
+    bool log_bool;
+    std::stringstream ss;
 
     std::thread control_loop_thread_;
     // Atomic flag to control loop execution, used to stop loop when destructor is called. 
     // atomic<bool> ensures safe access across threads.
     std::atomic<bool> control_loop_active_;
-    volatile sig_atomic_t flag;                           // to break control loop
+    static volatile sig_atomic_t flag;
     std::atomic<bool> goal_accepted_and_executing;        // decide when to run while loop in execute block
     std::atomic<bool> switch_to_joint_impendance_control; // when control loop is running and no active ms is specified after the first one onwards
     bool configuration_file_read;
@@ -143,6 +145,9 @@ namespace motion_specification_action
     double TORQUE_MAGNITUDE_LIMIT_FOREARM_LINK;
     double FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG;
     double STIFFNESS_FOREARM_JNT_LIMIT;
+    int SAVE_LOG_EVERY_NTH_STEP;
+    double LOW_PASS_FILTER_ALPHA;
+    double LOG_BOOL;
 
     double INTEGRAL_GAIN_X;
     double INTEGRAL_GAIN_Y;
@@ -276,6 +281,7 @@ namespace motion_specification_action
     double d_signal_z;
     double dead_zone_limit;
     double integral_decay_rate;
+    double lp_filter_alpha;
 
     double forearm_link_y_axis_angle_sp;
     double deadband_forearm_y_axis_angle;
@@ -285,6 +291,10 @@ namespace motion_specification_action
     double previous_error_x_pos;
     double previous_error_y_pos;
     double previous_error_z_pos;
+
+    double previous_d_signal_x;
+    double previous_d_signal_y;
+    double previous_d_signal_z;
 
     double error_sum_lin_x_axis_data;
     double error_sum_lin_y_axis_data;
@@ -360,8 +370,11 @@ namespace motion_specification_action
     std::array<double, 4> desired_quat_FrameName;
 
     // initialise multi-dimensional array to store data
-    std::vector<std::vector<double>> data_array_log;
-    int iterationCount;
+    static constexpr size_t LOG_ARRAY_SIZE = 33;
+    std::vector<std::array<double, LOG_ARRAY_SIZE>> data_array_log;
+    std::string log_file_name;
+    std::ofstream data_stream_log;
+    int iteration_count;
 
     // joint torques that will be calculated before setting the control mode
     std::vector<double> rne_output_jnt_torques_vector_to_set_control_mode;
@@ -392,9 +405,15 @@ namespace motion_specification_action
         const std::vector<float> &gravitational_acceleration,
         const KDL::Chain &chain_urdf);
 
+    template <size_t N>
+    void close_log_files(std::vector<std::array<double, N>>& data_array_log,
+                        std::ofstream &data_stream_log);
+
     void kinova_setup_communication(
         const robot_controlled &robot_to_control,
         kinova_mediator &kinova_arm_mediator);
+
+    static void handle_signal(int sig);
 
     void read_ms_conditions_count(
       const YAML::Node &motion_specification_params_object,
@@ -531,6 +550,8 @@ namespace motion_specification_action
         const double &integral_gain,
         const double &damping_gain,
         double &previous_error,
+        double &previous_d_signal,
+        double &lp_filter_alpha,
         const double &control_dt,
         double &error_sum,
         const double &dead_zone_limit,
@@ -559,6 +580,11 @@ namespace motion_specification_action
         double &previous_error_x_pos,
         double &previous_error_y_pos,
         double &previous_error_z_pos,
+        double &previous_d_signal_x,
+        double &previous_d_signal_y,
+        double &previous_d_signal_z,
+        double &lp_filter_alpha,
+        const bool &log_bool,
         const double &control_dt,
         double &error_sum_lin_x_axis_data,
         double &error_sum_lin_y_axis_data,

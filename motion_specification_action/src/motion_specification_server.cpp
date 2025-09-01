@@ -5,7 +5,6 @@ namespace motion_specification_action
   MotionSpecificationActionServer::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
       : Node("motion_specification_action_server", options),
         control_loop_active_(true),
-        flag(0),
         goal_accepted_and_executing(false),
         jnt_positions(kinova_constants::NUMBER_OF_JOINTS),
         torques_gravity_compensation(kinova_constants::NUMBER_OF_JOINTS),
@@ -20,13 +19,18 @@ namespace motion_specification_action
         pre_condition_constraint_count(0),
         per_condition_constraint_count(0),
         post_condition_constraint_count(0),
-        iterationCount(0),
+        iteration_count(0),
         frequency_of_state_publish(10),
         gravitational_acceleration{0.0f, 0.0f, -9.81f},
         time_period_of_complete_controller_cycle_data(0.0),
         previous_error_x_pos(0.0),
         previous_error_y_pos(0.0),
         previous_error_z_pos(0.0),
+        previous_d_signal_x(0.0),
+        previous_d_signal_y(0.0),
+        previous_d_signal_z(0.0),
+        lp_filter_alpha(0.0),
+        log_bool(false),
         control_dt(0.001),
         desired_quat_FrameName{0.0, 0.0, 0.0, 1.0},
         measured_quat_FrameName{0.0, 0.0, 0.0, 1.0},
@@ -122,9 +126,38 @@ namespace motion_specification_action
     config_file_object = YAML::LoadFile(config_file_path);
     parse_urdf_file(urdf_file_path, kinematic_tree, chain_urdf, NUM_LINKS);
     zero_jnt_velocities.data.setZero();
-
     read_config_file(config_file_object);
     initialise_solvers(jacobDotSolver, fkSolverPos, fkSolverVel, ikSolverAcc, idSolver, gravitational_acceleration, chain_urdf);
+    
+    ss << package_share_directory 
+      << "/log_files/pid_controller_"
+      << getTimestamp()
+      << "_P" << STIFFNESS_GAIN_X
+      << "_I" << INTEGRAL_GAIN_X
+      << "_D" << DAMPING_GAIN_X
+      << ".csv";
+    log_file_name = ss.str();
+    if (log_bool)
+    {
+      data_stream_log.open(log_file_name);
+      if (!data_stream_log.is_open()) {
+          RCLCPP_ERROR(this->get_logger(), "Failed to open log file: %s", log_file_name.c_str());
+          throw std::runtime_error("Failed to open log file");
+      }
+      std::cout << "Opened log file successfully" << std::endl;
+      data_stream_log << "e_pos_x,e_pos_y,e_pos_z,lin_pos_sp_x_axis_data,lin_pos_sp_y_axis_data,lin_pos_sp_z_axis_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,stiffness_lin_x_axis_data,stiffness_lin_y_axis_data,stiffness_lin_z_axis_data,integral_lin_x_axis_data,integral_lin_y_axis_data,integral_lin_z_axis_data,error_sum_lin_x_axis_data,error_sum_lin_y_axis_data,error_sum_lin_z_axis_data,damping_gain_x_axis_data,damping_gain_y_axis_data,damping_gain_z_axis_data,p_signal_x,p_signal_y,p_signal_z,i_signal_x,i_signal_y,i_signal_z,d_signal_x,d_signal_y,d_signal_z,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data\n";
+    }
+
+    sa.sa_handler = &MotionSpecificationActionServer::handle_signal;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
+        perror("sigaction SIGINT");
+    }
+    if (sigaction(SIGTERM, &sa, NULL) == -1) {
+        perror("sigaction SIGTERM");
+    }
 
     // Read frame axes and position from the configuration file
     BL_x_axis_wrt_GF = KDL::Vector(BL_x_axis_wrt_GF_vector[0], BL_x_axis_wrt_GF_vector[1], BL_x_axis_wrt_GF_vector[2]);
@@ -199,7 +232,7 @@ namespace motion_specification_action
     control_loop_thread_ = std::thread([this]()
                                        { this->control_loop(); });
   }
-
+  
   MotionSpecificationActionServer::~MotionSpecificationActionServer()
   {
     // Stop the control loop thread gracefully when the node is shutting down
@@ -208,6 +241,15 @@ namespace motion_specification_action
     {
       control_loop_thread_.join();
     }
+  }
+  
+  volatile sig_atomic_t MotionSpecificationActionServer::flag = 0;
+
+  void MotionSpecificationActionServer::handle_signal(int sig)
+  {
+    flag = 1;
+    std::cout << "Received signal " << sig << ", shutting down..." << std::endl;
+    rclcpp::shutdown();
   }
 
   void MotionSpecificationActionServer::publish_static_transform_from_GF_to_BL(const std::string &robot_base_link_name, const std::string &arm_base_link_name, KDL::Frame &BL_wrt_GF_frame)
@@ -282,10 +324,13 @@ namespace motion_specification_action
     post_condition_satisfied = false;
     pre_configuration_joint_angles_reached = false;
     previous_error_x_pos = 0.0;
+    previous_d_signal_x = 0.0;
     error_sum_lin_x_axis_data = 0.0;
     previous_error_y_pos = 0.0;
+    previous_d_signal_y = 0.0;
     error_sum_lin_y_axis_data = 0.0;
     previous_error_z_pos = 0.0;
+    previous_d_signal_z = 0.0;
     error_sum_lin_z_axis_data = 0.0;
   }
 
@@ -1011,6 +1056,8 @@ namespace motion_specification_action
       const double &integral_gain,
       const double &damping_gain,
       double &previous_error,
+      double &previous_d_signal,
+      double &lp_filter_alpha,
       const double &control_dt,
       double &error_sum,
       const double &dead_zone_limit,
@@ -1035,11 +1082,18 @@ namespace motion_specification_action
       previous_error = error; // avoid large derivative kick at the start
     }
     d_signal = damping_gain * (error - previous_error) / control_dt;
+    // add low-pass filter to avoid effect due to noise
+    if (previous_d_signal == 0)
+    {
+      previous_d_signal = d_signal;
+    }
+    d_signal = lp_filter_alpha * d_signal + (1.0 - lp_filter_alpha) * previous_d_signal;
     pid_signal += d_signal;
-    std::cout << "d_sig: " << d_signal << ";  error: " << error << ";  previous_error:  " << previous_error << std::endl;
+    previous_d_signal = d_signal;
+    // std::cout << "d_sig: " << d_signal << ";  error: " << error << ";  previous_error:  " << previous_error << std::endl;
     previous_error = error;
     if ((error > 0 && error_sum < 0) || (error < 0 && error_sum > 0)) {
-      error_sum = (1.0 - integral_decay_rate) * error_sum; // faster integral windup when error sign changes
+      error_sum = (1.0 - integral_decay_rate) * error_sum + integral_decay_rate * error; // faster integral windup when error sign changes
     }
     saturate_integral_error_sum(&error_sum, &integral_clamping_limit);
     i_signal = integral_gain * error_sum;
@@ -1062,6 +1116,11 @@ namespace motion_specification_action
       double &previous_error_x_pos,
       double &previous_error_y_pos,
       double &previous_error_z_pos,
+      double &previous_d_signal_x,
+      double &previous_d_signal_y,
+      double &previous_d_signal_z,
+      double &lp_filter_alpha,
+      const bool &log_bool,
       const double &control_dt,
       double &error_sum_lin_x_axis_data,
       double &error_sum_lin_y_axis_data,
@@ -1140,6 +1199,8 @@ namespace motion_specification_action
                     integral_lin_x_axis_data,
                     damping_gain_x_axis_data,
                     previous_error_x_pos,
+                    previous_d_signal_x,
+                    lp_filter_alpha,
                     control_dt,
                     error_sum_lin_x_axis_data,
                     dead_zone_limit,
@@ -1159,6 +1220,8 @@ namespace motion_specification_action
                     integral_lin_y_axis_data,
                     damping_gain_y_axis_data,
                     previous_error_y_pos,
+                    previous_d_signal_y,
+                    lp_filter_alpha,
                     control_dt,
                     error_sum_lin_y_axis_data,
                     dead_zone_limit,
@@ -1178,6 +1241,8 @@ namespace motion_specification_action
                     integral_lin_z_axis_data,
                     damping_gain_z_axis_data,
                     previous_error_z_pos,
+                    previous_d_signal_z,
+                    lp_filter_alpha,
                     control_dt,
                     error_sum_lin_z_axis_data,
                     dead_zone_limit,
@@ -1261,11 +1326,14 @@ namespace motion_specification_action
       auto e_pos_x = lin_pos_sp_x_axis_data - measured_lin_pos_x_axis_data;
       auto e_pos_y = lin_pos_sp_y_axis_data - measured_lin_pos_y_axis_data;
       auto e_pos_z = lin_pos_sp_z_axis_data - measured_lin_pos_z_axis_data;
-      std::cout << std::fixed << std::setprecision(1) 
-                << "p_x: " << stiffness_lin_x_axis_data * e_pos_x << ",   i_x: " << integral_lin_x_axis_data * error_sum_lin_x_axis_data << "; "
-                << "    p_y: " << stiffness_lin_y_axis_data * e_pos_y << ",   i_y: " << integral_lin_y_axis_data * error_sum_lin_y_axis_data << "; "
-                << "    p_z: " << stiffness_lin_z_axis_data * e_pos_z << ",   i_z: " << integral_lin_z_axis_data * error_sum_lin_z_axis_data << std::endl;
-
+      // std::cout << std::fixed << std::setprecision(1) 
+      //           << "p_x: " << stiffness_lin_x_axis_data * e_pos_x << ",   i_x: " << integral_lin_x_axis_data * error_sum_lin_x_axis_data << "; "
+      //           << "    p_y: " << stiffness_lin_y_axis_data * e_pos_y << ",   i_y: " << integral_lin_y_axis_data * error_sum_lin_y_axis_data << "; "
+      //           << "    p_z: " << stiffness_lin_z_axis_data * e_pos_z << ",   i_z: " << integral_lin_z_axis_data * error_sum_lin_z_axis_data << std::endl;
+      if (log_bool)
+      {
+        data_array_log.push_back({e_pos_x,e_pos_y,e_pos_z,lin_pos_sp_x_axis_data,lin_pos_sp_y_axis_data,lin_pos_sp_z_axis_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,stiffness_lin_x_axis_data,stiffness_lin_y_axis_data,stiffness_lin_z_axis_data,integral_lin_x_axis_data,integral_lin_y_axis_data,integral_lin_z_axis_data,error_sum_lin_x_axis_data,error_sum_lin_y_axis_data,error_sum_lin_z_axis_data,damping_gain_x_axis_data,damping_gain_y_axis_data,damping_gain_z_axis_data,p_signal_x,p_signal_y,p_signal_z,i_signal_x,i_signal_y,i_signal_z,d_signal_x,d_signal_y,d_signal_z,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data});
+      }
     }
   }
 
@@ -1429,7 +1497,13 @@ namespace motion_specification_action
       JOINT_5_ANGLE_LIMIT_DEG = config_file_object[arm_name]["JOINT_5_ANGLE_LIMIT_DEG"].as<double>();
 
       DESIRED_TIME_STEP = config_file_object[arm_name]["DESIRED_TIME_STEP"].as<double>();
+      SAVE_LOG_EVERY_NTH_STEP = config_file_object[arm_name]["SAVE_LOG_EVERY_NTH_STEP"].as<int>();
       control_dt = DESIRED_TIME_STEP;
+      LOW_PASS_FILTER_ALPHA = config_file_object[arm_name]["LOW_PASS_FILTER_ALPHA"].as<double>();
+      LOG_BOOL = config_file_object[arm_name]["LOG_BOOL"].as<bool>();
+
+      log_bool = LOG_BOOL;
+      lp_filter_alpha = LOW_PASS_FILTER_ALPHA;
 
       stiffness_lin_x_axis_data = STIFFNESS_GAIN_X;
       stiffness_lin_y_axis_data = STIFFNESS_GAIN_Y;
@@ -1709,6 +1783,11 @@ namespace motion_specification_action
                 previous_error_x_pos,
                 previous_error_y_pos,
                 previous_error_z_pos,
+                previous_d_signal_x,
+                previous_d_signal_y,
+                previous_d_signal_z,
+                lp_filter_alpha,
+                log_bool,
                 control_dt,
                 error_sum_lin_z_axis_data,
                 error_sum_lin_y_axis_data,
@@ -1908,14 +1987,24 @@ namespace motion_specification_action
         RCLCPP_INFO(this->get_logger(), "Control loop not active. Exiting.");
         break;
       }
-      if (flag==1)
+      if (flag == 1)
       {
-        RCLCPP_INFO(this->get_logger(), "Flag set to 1. Exiting.");
+        RCLCPP_INFO(this->get_logger(), "Flag set to 1. Exiting control loop.");
         break;
       }
       loop_rate.sleep(); // Maintain the loop at 1kHz
-    }
+      iteration_count++;
 
+      if (log_bool && iteration_count % SAVE_LOG_EVERY_NTH_STEP == 0)
+      {
+        appendDataToFile_dynamic_size(data_stream_log, data_array_log);
+        data_array_log.clear();
+      }
+    }
+    if (log_bool)
+    {
+      close_log_files(data_array_log, data_stream_log);
+    }
     kinova_arm_mediator.set_control_mode(control_mode::POSITION, nullptr);
   }
 
@@ -1958,6 +2047,19 @@ namespace motion_specification_action
       }
     }
     BL_wrt_FrameName_frame = tf2::transformToKDL(transform_stamped);
+  }
+
+  template <size_t N>
+  void MotionSpecificationActionServer::close_log_files(std::vector<std::array<double, N>>& data_array_log, 
+                                                        std::ofstream &data_stream_log)
+  {
+    if (!data_array_log.empty())
+    {
+      appendDataToFile_dynamic_size(data_stream_log, data_array_log);
+      data_array_log.clear();
+    }
+    data_stream_log.close();
+    std::cout << "Data collection completed. Log file name: " << log_file_name << "\n";
   }
 
   void MotionSpecificationActionServer::execute(const std::shared_ptr<GoalHandleMotionSpecification> goal_handle)
@@ -2034,10 +2136,8 @@ namespace motion_specification_action
     reset_flags();
     goal_accepted_and_executing = true;
 
-    // print string message on goal
     while (goal_accepted_and_executing && rclcpp::ok())
     {
-
       tcp_wrt_FrameName = {measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data};
       goal_handle->publish_feedback(feedback);
 
@@ -2077,7 +2177,15 @@ namespace motion_specification_action
         goal_accepted_and_executing = false;
         return;
       }
-
+      if (flag == 1)
+      {
+        result->motion_successful = false;
+        post_condition_indices.clear();
+        goal_handle->abort(result);
+        RCLCPP_INFO(this->get_logger(), "Key interruption detected. Stopping server.");
+        goal_accepted_and_executing = false;
+        return;
+      }
       loop_rate.sleep();
     }
 
