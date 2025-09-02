@@ -1626,6 +1626,8 @@ namespace motion_specification_action
 
       if (goal_accepted_and_executing && reach_pre_configuration_joint_angles && !pre_configuration_joint_angles_reached)
       {
+        switch_to_joint_impendance_control = false;
+        jnt_impedance_setpoint_is_set = false;
         for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; ++i)
         {
           jnt_angle_diff = pre_configuration_joint_angles_radians[i] - jnt_positions(i);
@@ -1634,7 +1636,7 @@ namespace motion_specification_action
           {
             jnt_angle_diff = normalize_angle_diff(jnt_angle_diff);
           }
-          if (std::abs(jnt_angle_diff) > pre_configuration_max_deviation_radians)
+          if (std::abs(jnt_angle_diff) > pre_configuration_max_deviation_radians && std::abs(jnt_velocities(i)) < 0.05)
           {
             std::cout << "[INFO] Pre-configuration check failed: joint " << i 
                       << " deviates by " << jnt_angle_diff << " rad." << std::endl;
@@ -1673,9 +1675,10 @@ namespace motion_specification_action
             pre_configuration_joint_angles_reached = true;
             for (size_t i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
             {
-                jnt_positions_setpoint(i) = pre_configuration_joint_angles_radians[i];
+              jnt_positions_setpoint(i) = pre_configuration_joint_angles_radians[i];
             }
             jnt_impedance_setpoint_is_set = true;
+            std::cout << "Entering joint impedance mode as pre-config is reached and there are no further goals" << std::endl;
           }
         }
       }
@@ -1861,7 +1864,7 @@ namespace motion_specification_action
 
         if (!jnt_impedance_setpoint_is_set)
         {
-          std::cout << "In joint impedance mode" << std::endl;
+          std::cout << "Entering joint impedance mode" << std::endl;
           jnt_positions_setpoint = jnt_positions;
           jnt_impedance_setpoint_is_set = true;
         }
