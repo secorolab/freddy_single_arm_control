@@ -1090,7 +1090,7 @@ namespace motion_specification_action
     d_signal = lp_filter_alpha * d_signal + (1.0 - lp_filter_alpha) * previous_d_signal;
     pid_signal += d_signal;
     previous_d_signal = d_signal;
-    // std::cout << "d_sig: " << d_signal << ";  error: " << error << ";  previous_error:  " << previous_error << std::endl;
+
     previous_error = error;
     if ((error > 0 && error_sum < 0) || (error < 0 && error_sum > 0)) {
       error_sum = (1.0 - integral_decay_rate) * error_sum + integral_decay_rate * error; // faster integral windup when error sign changes
@@ -1326,10 +1326,6 @@ namespace motion_specification_action
       auto e_pos_x = lin_pos_sp_x_axis_data - measured_lin_pos_x_axis_data;
       auto e_pos_y = lin_pos_sp_y_axis_data - measured_lin_pos_y_axis_data;
       auto e_pos_z = lin_pos_sp_z_axis_data - measured_lin_pos_z_axis_data;
-      // std::cout << std::fixed << std::setprecision(1) 
-      //           << "p_x: " << stiffness_lin_x_axis_data * e_pos_x << ",   i_x: " << integral_lin_x_axis_data * error_sum_lin_x_axis_data << "; "
-      //           << "    p_y: " << stiffness_lin_y_axis_data * e_pos_y << ",   i_y: " << integral_lin_y_axis_data * error_sum_lin_y_axis_data << "; "
-      //           << "    p_z: " << stiffness_lin_z_axis_data * e_pos_z << ",   i_z: " << integral_lin_z_axis_data * error_sum_lin_z_axis_data << std::endl;
       if (log_bool)
       {
         data_array_log.push_back({e_pos_x,e_pos_y,e_pos_z,lin_pos_sp_x_axis_data,lin_pos_sp_y_axis_data,lin_pos_sp_z_axis_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,stiffness_lin_x_axis_data,stiffness_lin_y_axis_data,stiffness_lin_z_axis_data,integral_lin_x_axis_data,integral_lin_y_axis_data,integral_lin_z_axis_data,error_sum_lin_x_axis_data,error_sum_lin_y_axis_data,error_sum_lin_z_axis_data,damping_gain_x_axis_data,damping_gain_y_axis_data,damping_gain_z_axis_data,p_signal_x,p_signal_y,p_signal_z,i_signal_x,i_signal_y,i_signal_z,d_signal_x,d_signal_y,d_signal_z,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data});
@@ -1675,6 +1671,11 @@ namespace motion_specification_action
           if (jnt_angle_within_tolerance_cnt == kinova_constants::NUMBER_OF_JOINTS)
           {
             pre_configuration_joint_angles_reached = true;
+            for (size_t i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
+            {
+                jnt_positions_setpoint(i) = pre_configuration_joint_angles_radians[i];
+            }
+            jnt_impedance_setpoint_is_set = true;
           }
         }
       }
