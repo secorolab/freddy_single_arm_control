@@ -109,7 +109,8 @@ namespace motion_specification_action
     bool transform_available;
     bool log_pid_pos;
     bool log_pid_vel;
-    std::stringstream ss;
+    std::stringstream ss_pos_pid;
+    std::stringstream ss_vel_pid;
 
     std::thread control_loop_thread_;
     // Atomic flag to control loop execution, used to stop loop when destructor is called. 
@@ -121,6 +122,7 @@ namespace motion_specification_action
     bool configuration_file_read;
     bool jnt_impedance_setpoint_is_set;
     bool abort_motion_execution;
+    bool goal_handle_result_published;
     std::atomic<bool> pre_condition_satisfied;
     std::atomic<bool> post_condition_satisfied;
     std::vector<int> post_condition_indices; // to store the indices of the post condition constraints that are satisfied
@@ -130,8 +132,8 @@ namespace motion_specification_action
     // initialise data by reading from the config file
     double WRENCH_THRESHOLD_LINEAR;
     double WRENCH_THRESHOLD_ROTATIONAL;
-    double JOINT_TORQUE_THRESHOLD_UNTIL_JNT_3;
-    double JOINT_TORQUE_THRESHOLD_FROM_JNT_4_TO_7;
+    double JOINT_TORQUE_THRESHOLD_UNTIL_JNT_4;
+    double JOINT_TORQUE_THRESHOLD_FROM_JNT_5_TO_7;
     double STIFFNESS_GAIN_X_POS;
     double STIFFNESS_GAIN_Y_POS;
     double STIFFNESS_GAIN_Z_POS;
@@ -140,21 +142,22 @@ namespace motion_specification_action
     double DAMPING_GAIN_Z_POS;
     double DEADZONE_POS_CTRL;
     double DEADZONE_VEL_CTRL;
-    double STIFFNESS_GAIN_X_VELOCITY;
-    double STIFFNESS_GAIN_Y_VELOCITY;
-    double STIFFNESS_GAIN_Z_VELOCITY;
-    double DAMPING_GAIN_X_VELOCITY;
-    double DAMPING_GAIN_Y_VELOCITY;
-    double DAMPING_GAIN_Z_VELOCITY;
-    double INTEGRAL_GAIN_X_VELOCITY;
-    double INTEGRAL_GAIN_Y_VELOCITY;
-    double INTEGRAL_GAIN_Z_VELOCITY;
+    double STIFFNESS_GAIN_X_VEL;
+    double STIFFNESS_GAIN_Y_VEL;
+    double STIFFNESS_GAIN_Z_VEL;
+    double DAMPING_GAIN_X_VEL;
+    double DAMPING_GAIN_Y_VEL;
+    double DAMPING_GAIN_Z_VEL;
+    double INTEGRAL_GAIN_X_VEL;
+    double INTEGRAL_GAIN_Y_VEL;
+    double INTEGRAL_GAIN_Z_VEL;
     double DEADBAND_FOREARM_IN_DEG;
     double TORQUE_MAGNITUDE_LIMIT_FOREARM_LINK;
     double FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG;
     double STIFFNESS_FOREARM_JNT_LIMIT;
     int SAVE_LOG_EVERY_NTH_STEP;
-    double LOW_PASS_FILTER_ALPHA;
+    double LOW_PASS_FILTER_ALPHA_POS;
+    double LOW_PASS_FILTER_ALPHA_VEL;
     double LOG_PID_POS;
     double LOG_PID_VEL;
 
@@ -216,7 +219,7 @@ namespace motion_specification_action
     std::shared_ptr<KDL::ChainIdSolver_RNE> idSolver;
 
     // Declarations of the transformation-related variables
-    KDL::Frame BL_wrt_FrameName_frame;
+    KDL::Frame BL_wrt_desired_frame;
     std::vector<double> BL_x_axis_wrt_GF_vector;
     std::vector<double> BL_y_axis_wrt_GF_vector;
     std::vector<double> BL_z_axis_wrt_GF_vector;
@@ -232,10 +235,10 @@ namespace motion_specification_action
 
     // end effector Pose
     KDL::Frame measured_endEffPose_BL;
-    KDL::Frame measured_endEffPose_FrameName;
+    KDL::Frame measured_endEffPose_desired_frame;
     KDL::Frame measured_ForeArm_Link_Pose_BL;
     KDL::FrameVel measured_endEffTwist_BL;
-    KDL::FrameVel measured_endEffTwist_FrameName;
+    KDL::FrameVel measured_endEffTwist_desired_frame;
 
     // Joint variables
     KDL::JntArray jnt_positions;
@@ -251,8 +254,7 @@ namespace motion_specification_action
     KDL::JntArray jnt_accelerations;
     KDL::JntArray zero_jnt_velocities;
 
-    KDL::Wrenches linkWrenches_FrameName;
-    KDL::Wrenches linkWrenches_EE;
+    KDL::Wrenches linkWrenches;
     KDL::Wrenches linkWrenches_zero;
 
     // cartesian acceleration
@@ -264,45 +266,57 @@ namespace motion_specification_action
     double time_period_of_complete_controller_cycle_data;
     double control_dt;
     double jnt_angle_diff;
-    double stiffness_lin_x_axis_data;
-    double stiffness_lin_y_axis_data;
-    double stiffness_lin_z_axis_data;
+    double stiffness_pos_x_axis_data;
+    double stiffness_pos_y_axis_data;
+    double stiffness_pos_z_axis_data;
 
-    double stiffness_lin_vel_x_axis_data;
-    double stiffness_lin_vel_y_axis_data;
-    double stiffness_lin_vel_z_axis_data;
+    double stiffness_vel_x_axis_data;
+    double stiffness_vel_y_axis_data;
+    double stiffness_vel_z_axis_data;
 
-    double damping_lin_vel_x_axis_data;
-    double damping_lin_vel_y_axis_data;
-    double damping_lin_vel_z_axis_data;
+    double damping_vel_x_axis_data;
+    double damping_vel_y_axis_data;
+    double damping_vel_z_axis_data;
 
-    double integral_lin_vel_x_axis_data;
-    double integral_lin_vel_y_axis_data;
-    double integral_lin_vel_z_axis_data;
+    double integral_vel_x_axis_data;
+    double integral_vel_y_axis_data;
+    double integral_vel_z_axis_data;
 
-    double integral_lin_x_axis_data;
-    double integral_lin_y_axis_data;
-    double integral_lin_z_axis_data;
+    double integral_pos_x_axis_data;
+    double integral_pos_y_axis_data;
+    double integral_pos_z_axis_data;
 
     double integral_clamping_limit_pos;
     double integral_clamping_limit_vel;
 
-    double damping_gain_x_axis_data;
-    double damping_gain_y_axis_data;
-    double damping_gain_z_axis_data;
+    double damping_pos_x_axis_data;
+    double damping_pos_y_axis_data;
+    double damping_pos_z_axis_data;
 
-    double p_signal_x;
-    double i_signal_x;
-    double d_signal_x;
-    double p_signal_y;
-    double i_signal_y;
-    double d_signal_y;
-    double p_signal_z;
-    double i_signal_z;
-    double d_signal_z;
+    double p_signal_x_pos;
+    double i_signal_x_pos;
+    double d_signal_x_pos;
+    double p_signal_y_pos;
+    double i_signal_y_pos;
+    double d_signal_y_pos;
+    double p_signal_z_pos;
+    double i_signal_z_pos;
+    double d_signal_z_pos;
+    double p_signal_x_vel;
+    double i_signal_x_vel;
+    double d_signal_x_vel;
+    double p_signal_y_vel;
+    double i_signal_y_vel;
+    double d_signal_y_vel;
+    double p_signal_z_vel;
+    double i_signal_z_vel;
+    double d_signal_z_vel;
     double dead_zone_limit_pos;
+    double dead_zone_limit_vel;
     double integral_decay_rate_pos;
-    double lp_filter_alpha;
+    double integral_decay_rate_vel;
+    double lp_filter_alpha_pos;
+    double lp_filter_alpha_vel;
 
     double forearm_link_y_axis_angle_sp;
     double deadband_forearm_y_axis_angle;
@@ -313,14 +327,25 @@ namespace motion_specification_action
     double previous_error_y_pos;
     double previous_error_z_pos;
 
-    double previous_d_signal_x;
-    double previous_d_signal_y;
-    double previous_d_signal_z;
+    double previous_error_x_vel;
+    double previous_error_y_vel;
+    double previous_error_z_vel;
 
-    double error_sum_lin_x_axis_data;
-    double error_sum_lin_y_axis_data;
-    double error_sum_lin_z_axis_data;
-    double error_sum_lin_axis_data;
+    double previous_d_signal_x_pos;
+    double previous_d_signal_y_pos;
+    double previous_d_signal_z_pos;
+
+    double previous_d_signal_x_vel;
+    double previous_d_signal_y_vel;
+    double previous_d_signal_z_vel;
+
+    double error_sum_pos_x_axis_data;
+    double error_sum_pos_y_axis_data;
+    double error_sum_pos_z_axis_data;
+
+    double error_sum_vel_x_axis_data;
+    double error_sum_vel_y_axis_data;
+    double error_sum_vel_z_axis_data;
 
     double stiffness_roll_axis_data;
     double stiffness_pitch_axis_data;
@@ -328,43 +353,31 @@ namespace motion_specification_action
     double stiffness_joint_impedance_ctrl;
     double stiffness_joint_impedance_ctrl_pre_jnt_config;
 
-    double measured_lin_pos_x_axis_data;
-    double measured_lin_pos_y_axis_data;
-    double measured_lin_pos_z_axis_data;
+    double measured_pos_x_axis_data;
+    double measured_pos_y_axis_data;
+    double measured_pos_z_axis_data;
 
-    std::array<double, 4> measured_quat_FrameName;
+    std::array<double, 4> measured_quat_desired_frame;
 
-    double measured_lin_vel_x_axis_data;
-    double measured_lin_vel_y_axis_data;
-    double measured_lin_vel_z_axis_data;
+    double measured_vel_x_axis_data;
+    double measured_vel_y_axis_data;
+    double measured_vel_z_axis_data;
 
-    double lin_pos_sp_x_axis_data;
-    double lin_pos_sp_y_axis_data;
-    double lin_pos_sp_z_axis_data;
+    double pos_sp_x_axis_data;
+    double pos_sp_y_axis_data;
+    double pos_sp_z_axis_data;
 
-    double lin_vel_sp_x_axis_data;
-    double lin_vel_sp_y_axis_data;
-    double lin_vel_sp_z_axis_data;
+    double vel_sp_x_axis_data;
+    double vel_sp_y_axis_data;
+    double vel_sp_z_axis_data;
 
-    double stiffness_term_lin_x_axis_data;
-    double stiffness_term_lin_y_axis_data;
-    double stiffness_term_lin_z_axis_data;
+    double stiffness_term_pos_x_axis_data;
+    double stiffness_term_pos_y_axis_data;
+    double stiffness_term_pos_z_axis_data;
 
     double damping_term_x_axis_data;
     double damping_term_y_axis_data;
     double damping_term_z_axis_data;
-
-    double lin_pos_error_stiffness_x_axis_data;
-    double lin_pos_error_stiffness_y_axis_data;
-    double lin_pos_error_stiffness_z_axis_data;
-
-    double lin_vel_error_damping_x_axis_data;
-    double lin_vel_error_damping_y_axis_data;
-    double lin_vel_error_damping_z_axis_data;
-
-    double stiffness_damping_terms_summation_x_axis_data;
-    double stiffness_damping_terms_summation_y_axis_data;
-    double stiffness_damping_terms_summation_z_axis_data;
 
     double apply_ee_force_x_axis_data;
     double apply_ee_force_y_axis_data;
@@ -386,15 +399,19 @@ namespace motion_specification_action
     double force_to_apply_y_axis;
     double force_to_apply_z_axis;
 
-    KDL::Vector angle_axis_diff_FrameName;
-    KDL::Frame desired_endEffPose_FrameName;
-    std::array<double, 4> desired_quat_FrameName;
+    KDL::Vector angle_axis_diff_desired_frame;
+    KDL::Frame desired_endEffPose_desired_frame;
+    std::array<double, 4> desired_quat_desired_frame;
 
     // initialise multi-dimensional array to store data
-    static constexpr size_t LOG_ARRAY_SIZE = 33;
-    std::vector<std::array<double, LOG_ARRAY_SIZE>> data_array_log;
-    std::string log_file_name;
-    std::ofstream data_stream_log;
+    static constexpr size_t LOG_ARRAY_SIZE_POS = 33;
+    std::vector<std::array<double, LOG_ARRAY_SIZE_POS>> data_array_log_pos;
+    static constexpr size_t LOG_ARRAY_SIZE_VEL = 33;
+    std::vector<std::array<double, LOG_ARRAY_SIZE_VEL>> data_array_log_vel;
+    std::string vel_pid_log_file_name;
+    std::ofstream vel_pid_data_stream_log;
+    std::string pos_pid_log_file_name;
+    std::ofstream pos_pid_data_stream_log;
     int iteration_count;
 
     // joint torques that will be calculated before setting the control mode
@@ -413,7 +430,7 @@ namespace motion_specification_action
     YAML::Node motion_specification_params_object;
 
     void publish_joint_states(KDL::JntArray& jnt_positions);
-    void publish_ee_pose(const double &measured_lin_pos_x_axis_data, const double &measured_lin_pos_y_axis_data, const double &measured_lin_pos_z_axis_data, const std::array<double, 4> &measured_quat_FrameName, const std::string &frame_name);
+    void publish_ee_pose(const double &measured_pos_x_axis_data, const double &measured_pos_y_axis_data, const double &measured_pos_z_axis_data, const std::array<double, 4> &measured_quat_desired_frame, const std::string &frame_name);
     void read_config_file(const YAML::Node &config_file_object);
     void parse_urdf_file(const std::string &urdf_file_path, KDL::Tree &kinematic_tree, KDL::Chain &chain_urdf, unsigned int &NUM_LINKS);
     void reset_flags();
@@ -449,7 +466,7 @@ namespace motion_specification_action
       KDL::Frame &BL_wrt_GF_frame);
     void get_transform_BL_wrt_desired_frame(
       const std::string &frame_name,
-      KDL::Frame &BL_wrt_FrameName_frame,
+      KDL::Frame &BL_wrt_desired_frame,
       geometry_msgs::msg::TransformStamped &transform_stamped,
       std::chrono::duration<double> &transform_timeout_duration,
       bool &transform_available);
@@ -462,7 +479,7 @@ namespace motion_specification_action
       KDL::JntArray &pre_configuration_jnt_positions_kdl_array,
       kinova_mediator &kinova_arm_mediator);
     void saturate_integral_error_sum(
-      double* error_sum_lin_axis_data,
+      double* error_sum_data,
       const double* integral_clamping_limit
     );
     // void handle_signal(int sig);
@@ -488,11 +505,11 @@ namespace motion_specification_action
                                          const KDL::JntArray &jnt_velocities,
                                          KDL::Frame &measured_endEffPose_BL,
                                          KDL::FrameVel &measured_endEffTwist_BL,
-                                         KDL::Frame &measured_endEffPose_FrameName,
-                                         KDL::FrameVel &measured_endEffTwist_FrameName,
+                                         KDL::Frame &measured_endEffPose_desired_frame,
+                                         KDL::FrameVel &measured_endEffTwist_desired_frame,
                                          std::shared_ptr<KDL::ChainFkSolverPos_recursive> &fkSolverPos,
                                          std::shared_ptr<KDL::ChainFkSolverVel_recursive> &fkSolverVel,
-                                         const KDL::Frame &BL_wrt_FrameName_frame);
+                                         const KDL::Frame &BL_wrt_desired_frame);
 
     void calculate_joint_torques_RNEA(
         std::shared_ptr<KDL::ChainJntToJacDotSolver> &jacobDotSolver,
@@ -505,7 +522,7 @@ namespace motion_specification_action
         KDL::JntArray &jnt_accelerations,
         KDL::JntArray &jnt_positions,
         KDL::JntArray &jnt_velocities,
-        KDL::Wrenches &linkWrenches_EE,
+        KDL::Wrenches &linkWrenches,
         KDL::JntArray &jnt_torques);
 
     template <size_t N>
@@ -532,17 +549,17 @@ namespace motion_specification_action
         const condition_type &condition_type_value);
 
     void check_pre_or_post_condition_satisfaction(
-        const double &measured_lin_pos_x_axis_data,
-        const double &measured_lin_pos_y_axis_data,
-        const double &measured_lin_pos_z_axis_data,
+        const double &measured_pos_x_axis_data,
+        const double &measured_pos_y_axis_data,
+        const double &measured_pos_z_axis_data,
         const double &measured_roll_data,
         const double &measured_pitch_data,
         const double &measured_yaw_data,
-        const double &measured_lin_vel_x_axis_data,
-        const double &measured_lin_vel_y_axis_data,
-        const double &measured_lin_vel_z_axis_data,
+        const double &measured_vel_x_axis_data,
+        const double &measured_vel_y_axis_data,
+        const double &measured_vel_z_axis_data,
         const double &time_since_start_per_condition_seconds,
-        KDL::Wrench &linkWrenches_EE,
+        KDL::Wrench &linkWrench_EE,
         const int &condition_constraint_count,
         std::string &constraint_type_str,
         const std::string &arm_name,
@@ -552,17 +569,17 @@ namespace motion_specification_action
         const condition_type &condition_type_value);
 
     void get_setpoints_from_motion_specification(
-      double &lin_pos_sp_x_axis_data,
-      double &lin_pos_sp_y_axis_data,
-      double &lin_pos_sp_z_axis_data,
-      double &lin_vel_sp_x_axis_data,
-      double &lin_vel_sp_y_axis_data,
-      double &lin_vel_sp_z_axis_data,
+      double &pos_sp_x_axis_data,
+      double &pos_sp_y_axis_data,
+      double &pos_sp_z_axis_data,
+      double &vel_sp_x_axis_data,
+      double &vel_sp_y_axis_data,
+      double &vel_sp_z_axis_data,
       double &force_to_apply_x_axis,
       double &force_to_apply_y_axis,
       double &force_to_apply_z_axis,
       const int &per_condition_constraint_count,
-      std::array<double, 4> &desired_quat_FrameName,
+      std::array<double, 4> &desired_quat_desired_frame,
       const YAML::Node &motion_specification_params_object,
       const std::string &arm_name);
 
@@ -585,72 +602,101 @@ namespace motion_specification_action
         const double &setpoint,
         double &pid_signal);
 
-    void get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
-        const double &stiffness_lin_vel_x_axis_data,
-        const double &stiffness_lin_vel_y_axis_data,
-        const double &stiffness_lin_vel_z_axis_data,
-        const double &stiffness_lin_x_axis_data,
-        const double &stiffness_lin_y_axis_data,
-        const double &stiffness_lin_z_axis_data,
-        const double &integral_lin_x_axis_data,
-        const double &integral_lin_y_axis_data,
-        const double &integral_lin_z_axis_data,
-        const double &damping_gain_x_axis_data,
-        const double &damping_gain_y_axis_data,
-        const double &damping_gain_z_axis_data,
+    void get_force_and_torque_from_controller_described_in_desired_frame_to_apply_at_EE(
+        const double &stiffness_pos_x_axis_data,
+        const double &stiffness_pos_y_axis_data,
+        const double &stiffness_pos_z_axis_data,
+        const double &integral_pos_x_axis_data,
+        const double &integral_pos_y_axis_data,
+        const double &integral_pos_z_axis_data,
+        const double &damping_pos_x_axis_data,
+        const double &damping_pos_y_axis_data,
+        const double &damping_pos_z_axis_data,
         double &previous_error_x_pos,
         double &previous_error_y_pos,
         double &previous_error_z_pos,
-        double &previous_d_signal_x,
-        double &previous_d_signal_y,
-        double &previous_d_signal_z,
-        double &lp_filter_alpha,
-        const bool &log_pid_pos,
-        const double &control_dt,
-        double &error_sum_lin_x_axis_data,
-        double &error_sum_lin_y_axis_data,
-        double &error_sum_lin_z_axis_data,
+        double &previous_d_signal_x_pos,
+        double &previous_d_signal_y_pos,
+        double &previous_d_signal_z_pos,
+        double &error_sum_pos_x_axis_data,
+        double &error_sum_pos_y_axis_data,
+        double &error_sum_pos_z_axis_data,
         const double &integral_clamping_limit_pos,
+        const double &integral_decay_rate_pos,
+        const double &dead_zone_limit_pos,
+        double &lp_filter_alpha_pos,
+        const double &measured_pos_x_axis_data,
+        const double &measured_pos_y_axis_data,
+        const double &measured_pos_z_axis_data,
+        const double &pos_sp_x_axis_data,
+        const double &pos_sp_y_axis_data,
+        const double &pos_sp_z_axis_data,
+        double &p_signal_x_pos,
+        double &i_signal_x_pos,
+        double &d_signal_x_pos,
+        double &p_signal_y_pos,
+        double &i_signal_y_pos,
+        double &d_signal_y_pos,
+        double &p_signal_z_pos,
+        double &i_signal_z_pos,
+        double &d_signal_z_pos,
+        const bool &log_pid_pos,
+        const double &stiffness_vel_x_axis_data,
+        const double &stiffness_vel_y_axis_data,
+        const double &stiffness_vel_z_axis_data,
+        const double &integral_vel_x_axis_data,
+        const double &integral_vel_y_axis_data,
+        const double &integral_vel_z_axis_data,
+        const double &damping_vel_x_axis_data,
+        const double &damping_vel_y_axis_data,
+        const double &damping_vel_z_axis_data,
+        double &previous_error_x_vel,
+        double &previous_error_y_vel,
+        double &previous_error_z_vel,
+        double &previous_d_signal_x_vel,
+        double &previous_d_signal_y_vel,
+        double &previous_d_signal_z_vel,
+        double &error_sum_vel_x_axis_data,
+        double &error_sum_vel_y_axis_data,
+        double &error_sum_vel_z_axis_data,
+        const double &integral_clamping_limit_vel,
+        const double &integral_decay_rate_vel,
+        const double &dead_zone_limit_vel,
+        double &lp_filter_alpha_vel,
+        const double &measured_vel_x_axis_data,
+        const double &measured_vel_y_axis_data,
+        const double &measured_vel_z_axis_data,
+        const double &vel_sp_x_axis_data,
+        const double &vel_sp_y_axis_data,
+        const double &vel_sp_z_axis_data,
+        double &p_signal_x_vel,
+        double &i_signal_x_vel,
+        double &d_signal_x_vel,
+        double &p_signal_y_vel,
+        double &i_signal_y_vel,
+        double &d_signal_y_vel,
+        double &p_signal_z_vel,
+        double &i_signal_z_vel,
+        double &d_signal_z_vel,
+        const bool &log_pid_vel,
+        const std::array<double, 4> &desired_quat_desired_frame,
         const double &stiffness_roll_axis_data,
         const double &stiffness_pitch_axis_data,
         const double &stiffness_yaw_axis_data,
-        const double &measured_lin_pos_x_axis_data,
-        const double &measured_lin_pos_y_axis_data,
-        const double &measured_lin_pos_z_axis_data,
-        const double &measured_lin_vel_x_axis_data,
-        const double &measured_lin_vel_y_axis_data,
-        const double &measured_lin_vel_z_axis_data,
-        const double &lin_pos_sp_x_axis_data,
-        const double &lin_pos_sp_y_axis_data,
-        const double &lin_pos_sp_z_axis_data,
-        const double &lin_vel_sp_x_axis_data,
-        const double &lin_vel_sp_y_axis_data,
-        const double &lin_vel_sp_z_axis_data,
         const double &force_to_apply_x_axis,
         const double &force_to_apply_y_axis,
         const double &force_to_apply_z_axis,
-        const double &dead_zone_limit_pos,
-        const double &integral_decay_rate_pos,
-        double &p_signal_x,
-        double &i_signal_x,
-        double &d_signal_x,
-        double &p_signal_y,
-        double &i_signal_y,
-        double &d_signal_y,
-        double &p_signal_z,
-        double &i_signal_z,
-        double &d_signal_z,
-        const std::array<double, 4> &desired_quat_FrameName,
         double &apply_ee_force_x_axis_data,
         double &apply_ee_force_y_axis_data,
         double &apply_ee_force_z_axis_data,
         double &apply_ee_torque_x_axis_data,
         double &apply_ee_torque_y_axis_data,
         double &apply_ee_torque_z_axis_data,
-        KDL::Frame &desired_endEffPose_FrameName,
-        const KDL::Frame &measured_endEffPose_FrameName,
+        KDL::Frame &desired_endEffPose_desired_frame,
+        const KDL::Frame &measured_endEffPose_desired_frame,
         const int &per_condition_constraint_count,
-        KDL::Vector &angle_axis_diff_FrameName,
+        KDL::Vector &angle_axis_diff_desired_frame,
+        const double &control_dt,
         const YAML::Node &motion_specification_params_object,
         const std::string &arm_name);
 

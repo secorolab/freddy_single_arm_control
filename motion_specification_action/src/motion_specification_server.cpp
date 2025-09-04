@@ -3,7 +3,7 @@
 namespace motion_specification_action
 {
   MotionSpecificationActionServer::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
-      : Node("motion_specification_action_server", options),
+      : Node("ms_action_server", options),
         control_loop_active_(true),
         goal_accepted_and_executing(false),
         jnt_positions(kinova_constants::NUMBER_OF_JOINTS),
@@ -23,75 +23,108 @@ namespace motion_specification_action
         frequency_of_state_publish(10),
         gravitational_acceleration{0.0f, 0.0f, -9.81f},
         time_period_of_complete_controller_cycle_data(0.0),
+        time_since_start_per_condition_seconds(0.0),
+        ms_start_time_set(false),
+        stiffness_pos_x_axis_data(0.0),
+        stiffness_pos_y_axis_data(0.0),
+        stiffness_pos_z_axis_data(0.0),
+        integral_pos_x_axis_data(0.0),
+        integral_pos_y_axis_data(0.0),
+        integral_pos_z_axis_data(0.0),
+        damping_pos_x_axis_data(0.0),
+        damping_pos_y_axis_data(0.0),
+        damping_pos_z_axis_data(0.0),
         previous_error_x_pos(0.0),
         previous_error_y_pos(0.0),
         previous_error_z_pos(0.0),
-        previous_d_signal_x(0.0),
-        previous_d_signal_y(0.0),
-        previous_d_signal_z(0.0),
-        lp_filter_alpha(0.0),
-        log_pid_pos(false),
-        control_dt(0.001),
-        desired_quat_FrameName{0.0, 0.0, 0.0, 1.0},
-        measured_quat_FrameName{0.0, 0.0, 0.0, 1.0},
-        measured_lin_pos_x_axis_data(0.0),
-        measured_lin_pos_y_axis_data(0.0),
-        measured_lin_pos_z_axis_data(0.0),
-        measured_lin_vel_x_axis_data(0.0),
-        measured_lin_vel_y_axis_data(0.0),
-        measured_lin_vel_z_axis_data(0.0),
-        time_since_start_per_condition_seconds(0.0),
-        ms_start_time_set(false),
-        lin_pos_sp_x_axis_data(0.0),
-        lin_pos_sp_y_axis_data(0.0),
-        lin_pos_sp_z_axis_data(0.0),
-        lin_vel_sp_x_axis_data(0.0),
-        lin_vel_sp_y_axis_data(0.0),
-        lin_vel_sp_z_axis_data(0.0),
-        stiffness_term_lin_x_axis_data(0.0),
-        stiffness_term_lin_y_axis_data(0.0),
-        stiffness_term_lin_z_axis_data(0.0),
-        damping_term_x_axis_data(0.0),
-        damping_term_y_axis_data(0.0),
-        damping_term_z_axis_data(0.0),
+        previous_d_signal_x_pos(0.0),
+        previous_d_signal_y_pos(0.0),
+        previous_d_signal_z_pos(0.0),
+        error_sum_pos_x_axis_data(0.0),
+        error_sum_pos_y_axis_data(0.0),
+        error_sum_pos_z_axis_data(0.0),
+        integral_clamping_limit_pos(0.0),
         integral_decay_rate_pos(0.0),
         dead_zone_limit_pos(0.0),
-        p_signal_x(0.0),
-        i_signal_x(0.0),
-        d_signal_x(0.0),
-        p_signal_y(0.0),
-        i_signal_y(0.0),
-        d_signal_y(0.0),
-        p_signal_z(0.0),
-        i_signal_z(0.0),
-        d_signal_z(0.0),
-        forearm_link_y_axis_angle_sp(0.0),
-        deadband_forearm_y_axis_angle(0.0),
-        torque_limit_forearm_link(0.0),
-        lin_pos_error_stiffness_x_axis_data(0.0),
-        lin_pos_error_stiffness_y_axis_data(0.0),
-        lin_pos_error_stiffness_z_axis_data(0.0),
-        lin_vel_error_damping_x_axis_data(0.0),
-        lin_vel_error_damping_y_axis_data(0.0),
-        lin_vel_error_damping_z_axis_data(0.0),
-        stiffness_damping_terms_summation_x_axis_data(0.0),
-        stiffness_damping_terms_summation_y_axis_data(0.0),
-        stiffness_damping_terms_summation_z_axis_data(0.0),
+        lp_filter_alpha_pos(0.0),
+        measured_pos_x_axis_data(0.0),
+        measured_pos_y_axis_data(0.0),
+        measured_pos_z_axis_data(0.0),
+        pos_sp_x_axis_data(0.0),
+        pos_sp_y_axis_data(0.0),
+        pos_sp_z_axis_data(0.0),
+        p_signal_x_pos(0.0),
+        i_signal_x_pos(0.0),
+        d_signal_x_pos(0.0),
+        p_signal_y_pos(0.0),
+        i_signal_y_pos(0.0),
+        d_signal_y_pos(0.0),
+        p_signal_z_pos(0.0),
+        i_signal_z_pos(0.0),
+        d_signal_z_pos(0.0),
+        log_pid_pos(false),
+        stiffness_vel_x_axis_data(0.0),
+        stiffness_vel_y_axis_data(0.0),
+        stiffness_vel_z_axis_data(0.0),
+        integral_vel_x_axis_data(0.0),
+        integral_vel_y_axis_data(0.0),
+        integral_vel_z_axis_data(0.0),
+        damping_vel_x_axis_data(0.0),
+        damping_vel_y_axis_data(0.0),
+        damping_vel_z_axis_data(0.0),
+        previous_error_x_vel(0.0),
+        previous_error_y_vel(0.0),
+        previous_error_z_vel(0.0),
+        previous_d_signal_x_vel(0.0),
+        previous_d_signal_y_vel(0.0),
+        previous_d_signal_z_vel(0.0),
+        error_sum_vel_x_axis_data(0.0),
+        error_sum_vel_y_axis_data(0.0),
+        error_sum_vel_z_axis_data(0.0),
+        integral_clamping_limit_vel(0.0),
+        integral_decay_rate_vel(0.0),
+        dead_zone_limit_vel(0.0),
+        lp_filter_alpha_vel(0.0),
+        measured_vel_x_axis_data(0.0),
+        measured_vel_y_axis_data(0.0),
+        measured_vel_z_axis_data(0.0),
+        vel_sp_x_axis_data(0.0),
+        vel_sp_y_axis_data(0.0),
+        vel_sp_z_axis_data(0.0),
+        p_signal_x_vel(0.0),
+        i_signal_x_vel(0.0),
+        d_signal_x_vel(0.0),
+        p_signal_y_vel(0.0),
+        i_signal_y_vel(0.0),
+        d_signal_y_vel(0.0),
+        p_signal_z_vel(0.0),
+        i_signal_z_vel(0.0),
+        d_signal_z_vel(0.0),
+        log_pid_vel(false),
+        desired_quat_desired_frame{0.0, 0.0, 0.0, 1.0},
+        measured_quat_desired_frame{0.0, 0.0, 0.0, 1.0},
+        stiffness_roll_axis_data(0.0),
+        stiffness_pitch_axis_data(0.0),
+        stiffness_yaw_axis_data(0.0),
+        force_to_apply_x_axis(0.0),
+        force_to_apply_y_axis(0.0),
+        force_to_apply_z_axis(0.0),
         apply_ee_force_x_axis_data(0.0),
         apply_ee_force_y_axis_data(0.0),
         apply_ee_force_z_axis_data(0.0),
         apply_ee_torque_x_axis_data(0.0),
         apply_ee_torque_y_axis_data(0.0),
         apply_ee_torque_z_axis_data(0.0),
+        control_dt(0.001),
+        forearm_link_y_axis_angle_sp(0.0),
+        deadband_forearm_y_axis_angle(0.0),
+        torque_limit_forearm_link(0.0),
         apply_forearm_z_axis_torque(0.0),
         apply_forearm_y_axis_torque(0.0),
         apply_forearm_x_axis_torque(0.0),
         measured_roll_data(0.0),
         measured_pitch_data(0.0),
         measured_yaw_data(0.0),
-        force_to_apply_x_axis(0.0),
-        force_to_apply_y_axis(0.0),
-        force_to_apply_z_axis(0.0),
         configuration_file_read(false),
         pre_condition_satisfied(false),
         post_condition_satisfied(false),
@@ -117,6 +150,7 @@ namespace motion_specification_action
         arm_base_link_name("base_link"),
         robot_base_link_name("eddie_base_link"),
         transform_available(false),
+        goal_handle_result_published(true),
         transform_timeout_duration(std::chrono::seconds(10))
   {
     using namespace std::placeholders;
@@ -129,23 +163,42 @@ namespace motion_specification_action
     read_config_file(config_file_object);
     initialise_solvers(jacobDotSolver, fkSolverPos, fkSolverVel, ikSolverAcc, idSolver, gravitational_acceleration, chain_urdf);
     
-    ss << package_share_directory 
-      << "/log_files/pid_controller_"
+    ss_pos_pid << package_share_directory 
+      << "/log_files/pos_pid_controller_"
       << getTimestamp()
       << "_P" << STIFFNESS_GAIN_X_POS
       << "_I" << INTEGRAL_GAIN_X_POS
       << "_D" << DAMPING_GAIN_X_POS
       << ".csv";
-    log_file_name = ss.str();
+    pos_pid_log_file_name = ss_pos_pid.str();
     if (log_pid_pos)
     {
-      data_stream_log.open(log_file_name);
-      if (!data_stream_log.is_open()) {
-          RCLCPP_ERROR(this->get_logger(), "Failed to open log file: %s", log_file_name.c_str());
+      pos_pid_data_stream_log.open(pos_pid_log_file_name);
+      if (!pos_pid_data_stream_log.is_open()) {
+          RCLCPP_ERROR(this->get_logger(), "Failed to open log file: %s", pos_pid_log_file_name.c_str());
           throw std::runtime_error("Failed to open log file");
       }
       std::cout << "Opened log file successfully" << std::endl;
-      data_stream_log << "e_pos_x,e_pos_y,e_pos_z,lin_pos_sp_x_axis_data,lin_pos_sp_y_axis_data,lin_pos_sp_z_axis_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,stiffness_lin_x_axis_data,stiffness_lin_y_axis_data,stiffness_lin_z_axis_data,integral_lin_x_axis_data,integral_lin_y_axis_data,integral_lin_z_axis_data,error_sum_lin_x_axis_data,error_sum_lin_y_axis_data,error_sum_lin_z_axis_data,damping_gain_x_axis_data,damping_gain_y_axis_data,damping_gain_z_axis_data,p_signal_x,p_signal_y,p_signal_z,i_signal_x,i_signal_y,i_signal_z,d_signal_x,d_signal_y,d_signal_z,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data\n";
+      pos_pid_data_stream_log << "e_pos_x,e_pos_y,e_pos_z,pos_sp_x_axis_data,pos_sp_y_axis_data,pos_sp_z_axis_data,measured_pos_x_axis_data,measured_pos_y_axis_data,measured_pos_z_axis_data,stiffness_pos_x_axis_data,stiffness_pos_y_axis_data,stiffness_pos_z_axis_data,integral_pos_x_axis_data,integral_pos_y_axis_data,integral_pos_z_axis_data,error_sum_pos_x_axis_data,error_sum_pos_y_axis_data,error_sum_pos_z_axis_data,damping_pos_x_axis_data,damping_pos_y_axis_data,damping_pos_z_axis_data,p_signal_x_pos,p_signal_y_pos,p_signal_z_pos,i_signal_x_pos,i_signal_y_pos,i_signal_z_pos,d_signal_x_pos,d_signal_y_pos,d_signal_z_pos,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data\n";
+    }
+
+    ss_vel_pid << package_share_directory 
+      << "/log_files/vel_pid_controller_"
+      << getTimestamp()
+      << "_P" << STIFFNESS_GAIN_X_VEL
+      << "_I" << INTEGRAL_GAIN_X_VEL
+      << "_D" << DAMPING_GAIN_X_VEL
+      << ".csv";
+    vel_pid_log_file_name = ss_vel_pid.str();
+    if (log_pid_vel)
+    {
+      vel_pid_data_stream_log.open(vel_pid_log_file_name);
+      if (!vel_pid_data_stream_log.is_open()) {
+          RCLCPP_ERROR(this->get_logger(), "Failed to open log file: %s", vel_pid_log_file_name.c_str());
+          throw std::runtime_error("Failed to open log file");
+      }
+      std::cout << "Opened log file successfully" << std::endl;
+      vel_pid_data_stream_log << "e_vel_x,e_vel_y,e_vel_z,vel_sp_x_axis_data,vel_sp_y_axis_data,vel_sp_z_axis_data,measured_vel_x_axis_data,measured_vel_y_axis_data,measured_vel_z_axis_data,stiffness_vel_x_axis_data,stiffness_vel_y_axis_data,stiffness_vel_z_axis_data,integral_vel_x_axis_data,integral_vel_y_axis_data,integral_vel_z_axis_data,error_sum_vel_x_axis_data,error_sum_vel_y_axis_data,error_sum_vel_z_axis_data,damping_vel_x_axis_data,damping_vel_y_axis_data,damping_vel_z_axis_data,p_signal_x_vel,p_signal_y_vel,p_signal_z_vel,i_signal_x_vel,i_signal_y_vel,i_signal_z_vel,d_signal_x_vel,d_signal_y_vel,d_signal_z_vel,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data\n";
     }
 
     sa.sa_handler = &MotionSpecificationActionServer::handle_signal;
@@ -169,10 +222,9 @@ namespace motion_specification_action
     // Initialize the KDL frame
     BL_wrt_GF = KDL::Rotation(BL_x_axis_wrt_GF, BL_y_axis_wrt_GF, BL_z_axis_wrt_GF);
     BL_wrt_GF_frame = KDL::Frame(BL_wrt_GF, BL_position_wrt_GF); 
-    BL_wrt_FrameName_frame = BL_wrt_GF_frame;
+    BL_wrt_desired_frame = BL_wrt_GF_frame;
 
-    linkWrenches_FrameName = KDL::Wrenches(NUM_LINKS, KDL::Wrench::Zero());
-    linkWrenches_EE = KDL::Wrenches(NUM_LINKS, KDL::Wrench::Zero());
+    linkWrenches = KDL::Wrenches(NUM_LINKS, KDL::Wrench::Zero());
     linkWrenches_zero = KDL::Wrenches(NUM_LINKS, KDL::Wrench::Zero());
 
     auto handle_goal = [this](
@@ -274,22 +326,22 @@ namespace motion_specification_action
     static_broadcaster_->sendTransform(static_transform);
   }
 
-  void MotionSpecificationActionServer::publish_ee_pose(const double &measured_lin_pos_x_axis_data, const double &measured_lin_pos_y_axis_data, const double &measured_lin_pos_z_axis_data, const std::array<double, 4> &measured_quat_FrameName, const std::string &frame_name) {
+  void MotionSpecificationActionServer::publish_ee_pose(const double &measured_pos_x_axis_data, const double &measured_pos_y_axis_data, const double &measured_pos_z_axis_data, const std::array<double, 4> &measured_quat_desired_frame, const std::string &frame_name) {
     auto pose_msg = geometry_msgs::msg::PoseStamped();
 
     pose_msg.header.stamp = this->now();
     pose_msg.header.frame_id = frame_name;
 
     // Example EE position (replace with real FK values)
-    pose_msg.pose.position.x = measured_lin_pos_x_axis_data;
-    pose_msg.pose.position.y = measured_lin_pos_y_axis_data;
-    pose_msg.pose.position.z = measured_lin_pos_z_axis_data;
+    pose_msg.pose.position.x = measured_pos_x_axis_data;
+    pose_msg.pose.position.y = measured_pos_y_axis_data;
+    pose_msg.pose.position.z = measured_pos_z_axis_data;
 
     // Example orientation (identity quaternion)
-    pose_msg.pose.orientation.x = measured_quat_FrameName[0];
-    pose_msg.pose.orientation.y = measured_quat_FrameName[1];
-    pose_msg.pose.orientation.z = measured_quat_FrameName[2];
-    pose_msg.pose.orientation.w = measured_quat_FrameName[3];
+    pose_msg.pose.orientation.x = measured_quat_desired_frame[0];
+    pose_msg.pose.orientation.y = measured_quat_desired_frame[1];
+    pose_msg.pose.orientation.z = measured_quat_desired_frame[2];
+    pose_msg.pose.orientation.w = measured_quat_desired_frame[3];
 
     pose_publisher_->publish(pose_msg);
   }
@@ -298,8 +350,6 @@ namespace motion_specification_action
     auto message = sensor_msgs::msg::JointState();
     message.header.stamp = this->now();
     message.name = joint_names_;
-
-    double time_now = this->now().seconds();
     message.position = {
         jnt_positions(0),
         jnt_positions(1),
@@ -324,14 +374,24 @@ namespace motion_specification_action
     post_condition_satisfied = false;
     pre_configuration_joint_angles_reached = false;
     previous_error_x_pos = 0.0;
-    previous_d_signal_x = 0.0;
-    error_sum_lin_x_axis_data = 0.0;
+    previous_d_signal_x_pos = 0.0;
+    error_sum_pos_x_axis_data = 0.0;
     previous_error_y_pos = 0.0;
-    previous_d_signal_y = 0.0;
-    error_sum_lin_y_axis_data = 0.0;
+    previous_d_signal_y_pos = 0.0;
+    error_sum_pos_y_axis_data = 0.0;
     previous_error_z_pos = 0.0;
-    previous_d_signal_z = 0.0;
-    error_sum_lin_z_axis_data = 0.0;
+    previous_d_signal_z_pos = 0.0;
+    error_sum_pos_z_axis_data = 0.0;
+
+    previous_error_x_vel = 0.0;
+    previous_d_signal_x_vel = 0.0;
+    error_sum_vel_x_axis_data = 0.0;
+    previous_error_y_vel = 0.0;
+    previous_d_signal_y_vel = 0.0;
+    error_sum_vel_y_axis_data = 0.0;
+    previous_error_z_vel = 0.0;
+    previous_d_signal_z_vel = 0.0;
+    error_sum_vel_z_axis_data = 0.0;
   }
 
   void MotionSpecificationActionServer::kinova_setup_communication(
@@ -444,11 +504,11 @@ namespace motion_specification_action
                                                                         const KDL::JntArray &jnt_velocities,
                                                                         KDL::Frame &measured_endEffPose_BL,
                                                                         KDL::FrameVel &measured_endEffTwist_BL,
-                                                                        KDL::Frame &measured_endEffPose_FrameName,
-                                                                        KDL::FrameVel &measured_endEffTwist_FrameName,
+                                                                        KDL::Frame &measured_endEffPose_desired_frame,
+                                                                        KDL::FrameVel &measured_endEffTwist_desired_frame,
                                                                         std::shared_ptr<KDL::ChainFkSolverPos_recursive> &fkSolverPos,
                                                                         std::shared_ptr<KDL::ChainFkSolverVel_recursive> &fkSolverVel,
-                                                                        const KDL::Frame &BL_wrt_FrameName_frame)
+                                                                        const KDL::Frame &BL_wrt_desired_frame)
   {
     jnt_velocity.q = jnt_positions;
     jnt_velocity.qdot = jnt_velocities;
@@ -456,8 +516,8 @@ namespace motion_specification_action
     fkSolverPos->JntToCart(jnt_positions, measured_endEffPose_BL);
     fkSolverVel->JntToCart(jnt_velocity, measured_endEffTwist_BL);
 
-    measured_endEffPose_FrameName = BL_wrt_FrameName_frame * measured_endEffPose_BL;
-    measured_endEffTwist_FrameName = BL_wrt_FrameName_frame * measured_endEffTwist_BL;
+    measured_endEffPose_desired_frame = BL_wrt_desired_frame * measured_endEffPose_BL;
+    measured_endEffTwist_desired_frame = BL_wrt_desired_frame * measured_endEffTwist_BL;
   }
 
   void MotionSpecificationActionServer::calculate_joint_torques_RNEA(
@@ -471,13 +531,13 @@ namespace motion_specification_action
       KDL::JntArray &jnt_accelerations,
       KDL::JntArray &jnt_positions,
       KDL::JntArray &jnt_velocities,
-      KDL::Wrenches &linkWrenches_EE,
+      KDL::Wrenches &linkWrenches,
       KDL::JntArray &jnt_torques)
   {
     jacobDotSolver->JntToJacDot(jnt_velocity, jd_qd);
     xdd_minus_jd_qd = xdd - jd_qd;
     ikSolverAcc->CartToJnt(jnt_positions, xdd_minus_jd_qd, jnt_accelerations);
-    idSolver->CartToJnt(jnt_positions, jnt_velocities, jnt_accelerations, linkWrenches_EE, jnt_torques);
+    idSolver->CartToJnt(jnt_positions, jnt_velocities, jnt_accelerations, linkWrenches, jnt_torques);
   }
 
   template <size_t N>
@@ -709,17 +769,17 @@ namespace motion_specification_action
   }
 
   void MotionSpecificationActionServer::check_pre_or_post_condition_satisfaction(
-      const double &measured_lin_pos_x_axis_data,
-      const double &measured_lin_pos_y_axis_data,
-      const double &measured_lin_pos_z_axis_data,
+      const double &measured_pos_x_axis_data,
+      const double &measured_pos_y_axis_data,
+      const double &measured_pos_z_axis_data,
       const double &measured_roll_data,
       const double &measured_pitch_data,
       const double &measured_yaw_data,
-      const double &measured_lin_vel_x_axis_data,
-      const double &measured_lin_vel_y_axis_data,
-      const double &measured_lin_vel_z_axis_data,
+      const double &measured_vel_x_axis_data,
+      const double &measured_vel_y_axis_data,
+      const double &measured_vel_z_axis_data,
       const double &time_since_start_per_condition_seconds,
-      KDL::Wrench &linkWrenches_EE,
+      KDL::Wrench &linkWrench_EE,
       const int &condition_constraint_count,
       std::string &constraint_type_str,
       const std::string &arm_name,
@@ -770,9 +830,9 @@ namespace motion_specification_action
           {
           case POSITION_XYZ:
             check_3D_vector_constraint_satisfaction(
-                measured_lin_pos_x_axis_data,
-                measured_lin_pos_y_axis_data,
-                measured_lin_pos_z_axis_data,
+                measured_pos_x_axis_data,
+                measured_pos_y_axis_data,
+                measured_pos_z_axis_data,
                 constraint_satisfied,
                 i,
                 motion_specification_params_object,
@@ -788,9 +848,9 @@ namespace motion_specification_action
               break;
             }
             check_3D_vector_constraint_satisfaction(
-                measured_lin_vel_x_axis_data,
-                measured_lin_vel_y_axis_data,
-                measured_lin_vel_z_axis_data,
+                measured_vel_x_axis_data,
+                measured_vel_y_axis_data,
+                measured_vel_z_axis_data,
                 constraint_satisfied,
                 i,
                 motion_specification_params_object,
@@ -834,9 +894,9 @@ namespace motion_specification_action
               break;
             }
             check_3D_vector_constraint_satisfaction(
-                linkWrenches_EE.force(0),
-                linkWrenches_EE.force(1),
-                linkWrenches_EE.force(2),
+                linkWrench_EE.force(0),
+                linkWrench_EE.force(1),
+                linkWrench_EE.force(2),
                 constraint_satisfied,
                 i,
                 motion_specification_params_object,
@@ -852,9 +912,9 @@ namespace motion_specification_action
               break;
             }
             check_3D_vector_constraint_satisfaction(
-                linkWrenches_EE.torque(0),
-                linkWrenches_EE.torque(1),
-                linkWrenches_EE.torque(2),
+                linkWrench_EE.torque(0),
+                linkWrench_EE.torque(1),
+                linkWrench_EE.torque(2),
                 constraint_satisfied,
                 i,
                 motion_specification_params_object,
@@ -919,17 +979,17 @@ namespace motion_specification_action
   }
 
   void MotionSpecificationActionServer::get_setpoints_from_motion_specification(
-    double &lin_pos_sp_x_axis_data,
-    double &lin_pos_sp_y_axis_data,
-    double &lin_pos_sp_z_axis_data,
-    double &lin_vel_sp_x_axis_data,
-    double &lin_vel_sp_y_axis_data,
-    double &lin_vel_sp_z_axis_data,
+    double &pos_sp_x_axis_data,
+    double &pos_sp_y_axis_data,
+    double &pos_sp_z_axis_data,
+    double &vel_sp_x_axis_data,
+    double &vel_sp_y_axis_data,
+    double &vel_sp_z_axis_data,
     double &force_to_apply_x_axis,
     double &force_to_apply_y_axis,
     double &force_to_apply_z_axis,
     const int &per_condition_constraint_count,
-    std::array<double, 4> &desired_quat_FrameName,
+    std::array<double, 4> &desired_quat_desired_frame,
     const YAML::Node &motion_specification_params_object,
     const std::string &arm_name)
 {
@@ -957,15 +1017,15 @@ namespace motion_specification_action
             {
               if (k == 0)
               {
-                lin_pos_sp_x_axis_data = constraint_value_list[k].as<double>();
+                pos_sp_x_axis_data = constraint_value_list[k].as<double>();
               }
               else if (k == 1)
               {
-                lin_pos_sp_y_axis_data = constraint_value_list[k].as<double>();
+                pos_sp_y_axis_data = constraint_value_list[k].as<double>();
               }
               else if (k == 2)
               {
-                lin_pos_sp_z_axis_data = constraint_value_list[k].as<double>();
+                pos_sp_z_axis_data = constraint_value_list[k].as<double>();
               }
             }
           }
@@ -979,15 +1039,15 @@ namespace motion_specification_action
             {
               if (k == 0)
               {
-                lin_vel_sp_x_axis_data = constraint_value_list[k].as<double>();
+                vel_sp_x_axis_data = constraint_value_list[k].as<double>();
               }
               else if (k == 1)
               {
-                lin_vel_sp_y_axis_data = constraint_value_list[k].as<double>();
+                vel_sp_y_axis_data = constraint_value_list[k].as<double>();
               }
               else if (k == 2)
               {
-                lin_vel_sp_z_axis_data = constraint_value_list[k].as<double>();
+                vel_sp_z_axis_data = constraint_value_list[k].as<double>();
               }
             }
           }
@@ -1021,7 +1081,7 @@ namespace motion_specification_action
             std::string constraint_str = constraint_value_list[k].as<std::string>("");
             if (!(constraint_str == "None"))
             {
-              desired_quat_FrameName[k] = constraint_value_list[k].as<double>();
+              desired_quat_desired_frame[k] = constraint_value_list[k].as<double>();
             }
           }
           break;
@@ -1100,72 +1160,101 @@ namespace motion_specification_action
     pid_signal += i_signal;
   }
 
-  void MotionSpecificationActionServer::get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
-      const double &stiffness_lin_vel_x_axis_data,
-      const double &stiffness_lin_vel_y_axis_data,
-      const double &stiffness_lin_vel_z_axis_data,
-      const double &stiffness_lin_x_axis_data,
-      const double &stiffness_lin_y_axis_data,
-      const double &stiffness_lin_z_axis_data,
-      const double &integral_lin_x_axis_data,
-      const double &integral_lin_y_axis_data,
-      const double &integral_lin_z_axis_data,
-      const double &damping_gain_x_axis_data,
-      const double &damping_gain_y_axis_data,
-      const double &damping_gain_z_axis_data,
+  void MotionSpecificationActionServer::get_force_and_torque_from_controller_described_in_desired_frame_to_apply_at_EE(
+      const double &stiffness_pos_x_axis_data,
+      const double &stiffness_pos_y_axis_data,
+      const double &stiffness_pos_z_axis_data,
+      const double &integral_pos_x_axis_data,
+      const double &integral_pos_y_axis_data,
+      const double &integral_pos_z_axis_data,
+      const double &damping_pos_x_axis_data,
+      const double &damping_pos_y_axis_data,
+      const double &damping_pos_z_axis_data,
       double &previous_error_x_pos,
       double &previous_error_y_pos,
       double &previous_error_z_pos,
-      double &previous_d_signal_x,
-      double &previous_d_signal_y,
-      double &previous_d_signal_z,
-      double &lp_filter_alpha,
-      const bool &log_pid_pos,
-      const double &control_dt,
-      double &error_sum_lin_x_axis_data,
-      double &error_sum_lin_y_axis_data,
-      double &error_sum_lin_z_axis_data,
+      double &previous_d_signal_x_pos,
+      double &previous_d_signal_y_pos,
+      double &previous_d_signal_z_pos,
+      double &error_sum_pos_x_axis_data,
+      double &error_sum_pos_y_axis_data,
+      double &error_sum_pos_z_axis_data,
       const double &integral_clamping_limit_pos,
+      const double &integral_decay_rate_pos,
+      const double &dead_zone_limit_pos,
+      double &lp_filter_alpha_pos,
+      const double &measured_pos_x_axis_data,
+      const double &measured_pos_y_axis_data,
+      const double &measured_pos_z_axis_data,
+      const double &pos_sp_x_axis_data,
+      const double &pos_sp_y_axis_data,
+      const double &pos_sp_z_axis_data,
+      double &p_signal_x_pos,
+      double &i_signal_x_pos,
+      double &d_signal_x_pos,
+      double &p_signal_y_pos,
+      double &i_signal_y_pos,
+      double &d_signal_y_pos,
+      double &p_signal_z_pos,
+      double &i_signal_z_pos,
+      double &d_signal_z_pos,
+      const bool &log_pid_pos,
+      const double &stiffness_vel_x_axis_data,
+      const double &stiffness_vel_y_axis_data,
+      const double &stiffness_vel_z_axis_data,
+      const double &integral_vel_x_axis_data,
+      const double &integral_vel_y_axis_data,
+      const double &integral_vel_z_axis_data,
+      const double &damping_vel_x_axis_data,
+      const double &damping_vel_y_axis_data,
+      const double &damping_vel_z_axis_data,
+      double &previous_error_x_vel,
+      double &previous_error_y_vel,
+      double &previous_error_z_vel,
+      double &previous_d_signal_x_vel,
+      double &previous_d_signal_y_vel,
+      double &previous_d_signal_z_vel,
+      double &error_sum_vel_x_axis_data,
+      double &error_sum_vel_y_axis_data,
+      double &error_sum_vel_z_axis_data,
+      const double &integral_clamping_limit_vel,
+      const double &integral_decay_rate_vel,
+      const double &dead_zone_limit_vel,
+      double &lp_filter_alpha_vel,
+      const double &measured_vel_x_axis_data,
+      const double &measured_vel_y_axis_data,
+      const double &measured_vel_z_axis_data,
+      const double &vel_sp_x_axis_data,
+      const double &vel_sp_y_axis_data,
+      const double &vel_sp_z_axis_data,
+      double &p_signal_x_vel,
+      double &i_signal_x_vel,
+      double &d_signal_x_vel,
+      double &p_signal_y_vel,
+      double &i_signal_y_vel,
+      double &d_signal_y_vel,
+      double &p_signal_z_vel,
+      double &i_signal_z_vel,
+      double &d_signal_z_vel,
+      const bool &log_pid_vel,
+      const std::array<double, 4> &desired_quat_desired_frame,
       const double &stiffness_roll_axis_data,
       const double &stiffness_pitch_axis_data,
       const double &stiffness_yaw_axis_data,
-      const double &measured_lin_pos_x_axis_data,
-      const double &measured_lin_pos_y_axis_data,
-      const double &measured_lin_pos_z_axis_data,
-      const double &measured_lin_vel_x_axis_data,
-      const double &measured_lin_vel_y_axis_data,
-      const double &measured_lin_vel_z_axis_data,
-      const double &lin_pos_sp_x_axis_data,
-      const double &lin_pos_sp_y_axis_data,
-      const double &lin_pos_sp_z_axis_data,
-      const double &lin_vel_sp_x_axis_data,
-      const double &lin_vel_sp_y_axis_data,
-      const double &lin_vel_sp_z_axis_data,
       const double &force_to_apply_x_axis,
       const double &force_to_apply_y_axis,
       const double &force_to_apply_z_axis,
-      const double &dead_zone_limit_pos,
-      const double &integral_decay_rate_pos,
-      double &p_signal_x,
-      double &i_signal_x,
-      double &d_signal_x,
-      double &p_signal_y,
-      double &i_signal_y,
-      double &d_signal_y,
-      double &p_signal_z,
-      double &i_signal_z,
-      double &d_signal_z,
-      const std::array<double, 4> &desired_quat_FrameName,
       double &apply_ee_force_x_axis_data,
       double &apply_ee_force_y_axis_data,
       double &apply_ee_force_z_axis_data,
       double &apply_ee_torque_x_axis_data,
       double &apply_ee_torque_y_axis_data,
       double &apply_ee_torque_z_axis_data,
-      KDL::Frame &desired_endEffPose_FrameName,
-      const KDL::Frame &measured_endEffPose_FrameName,
+      KDL::Frame &desired_endEffPose_desired_frame,
+      const KDL::Frame &measured_endEffPose_desired_frame,
       const int &per_condition_constraint_count,
-      KDL::Vector &angle_axis_diff_FrameName,
+      KDL::Vector &angle_axis_diff_desired_frame,
+      const double &control_dt,
       const YAML::Node &motion_specification_params_object,
       const std::string &arm_name)
   {
@@ -1195,64 +1284,64 @@ namespace motion_specification_action
                 if (k == 0)
                 {
                   pid_controller(
-                    stiffness_lin_x_axis_data,
-                    integral_lin_x_axis_data,
-                    damping_gain_x_axis_data,
+                    stiffness_pos_x_axis_data,
+                    integral_pos_x_axis_data,
+                    damping_pos_x_axis_data,
                     previous_error_x_pos,
-                    previous_d_signal_x,
-                    lp_filter_alpha,
+                    previous_d_signal_x_pos,
+                    lp_filter_alpha_pos,
                     control_dt,
-                    error_sum_lin_x_axis_data,
+                    error_sum_pos_x_axis_data,
                     dead_zone_limit_pos,
                     integral_decay_rate_pos,
                     integral_clamping_limit_pos,
-                    measured_lin_pos_x_axis_data,
-                    p_signal_x,
-                    i_signal_x,
-                    d_signal_x,
-                    lin_pos_sp_x_axis_data,
+                    measured_pos_x_axis_data,
+                    p_signal_x_pos,
+                    i_signal_x_pos,
+                    d_signal_x_pos,
+                    pos_sp_x_axis_data,
                     apply_ee_force_x_axis_data);
                 }
                 else if (k == 1)
                 {
                   pid_controller(
-                    stiffness_lin_y_axis_data,
-                    integral_lin_y_axis_data,
-                    damping_gain_y_axis_data,
+                    stiffness_pos_y_axis_data,
+                    integral_pos_y_axis_data,
+                    damping_pos_y_axis_data,
                     previous_error_y_pos,
-                    previous_d_signal_y,
-                    lp_filter_alpha,
+                    previous_d_signal_y_pos,
+                    lp_filter_alpha_pos,
                     control_dt,
-                    error_sum_lin_y_axis_data,
+                    error_sum_pos_y_axis_data,
                     dead_zone_limit_pos,
                     integral_decay_rate_pos,
                     integral_clamping_limit_pos,
-                    measured_lin_pos_y_axis_data,
-                    p_signal_y,
-                    i_signal_y,
-                    d_signal_y,
-                    lin_pos_sp_y_axis_data,
+                    measured_pos_y_axis_data,
+                    p_signal_y_pos,
+                    i_signal_y_pos,
+                    d_signal_y_pos,
+                    pos_sp_y_axis_data,
                     apply_ee_force_y_axis_data);
                 }
                 else if (k == 2)
                 {
                   pid_controller(
-                    stiffness_lin_z_axis_data,
-                    integral_lin_z_axis_data,
-                    damping_gain_z_axis_data,
+                    stiffness_pos_z_axis_data,
+                    integral_pos_z_axis_data,
+                    damping_pos_z_axis_data,
                     previous_error_z_pos,
-                    previous_d_signal_z,
-                    lp_filter_alpha,
+                    previous_d_signal_z_pos,
+                    lp_filter_alpha_pos,
                     control_dt,
-                    error_sum_lin_z_axis_data,
+                    error_sum_pos_z_axis_data,
                     dead_zone_limit_pos,
                     integral_decay_rate_pos,
                     integral_clamping_limit_pos,
-                    measured_lin_pos_z_axis_data,
-                    p_signal_z,
-                    i_signal_z,
-                    d_signal_z,
-                    lin_pos_sp_z_axis_data,
+                    measured_pos_z_axis_data,
+                    p_signal_z_pos,
+                    i_signal_z_pos,
+                    d_signal_z_pos,
+                    pos_sp_z_axis_data,
                     apply_ee_force_z_axis_data);
                 }
               }
@@ -1267,15 +1356,66 @@ namespace motion_specification_action
               {
                 if (k == 0)
                 {
-                  apply_ee_force_x_axis_data += stiffness_lin_vel_x_axis_data * (lin_vel_sp_x_axis_data - measured_lin_vel_x_axis_data);
+                  pid_controller(
+                    stiffness_vel_x_axis_data,
+                    integral_vel_x_axis_data,
+                    damping_vel_x_axis_data,
+                    previous_error_x_vel,
+                    previous_d_signal_x_vel,
+                    lp_filter_alpha_vel,
+                    control_dt,
+                    error_sum_vel_x_axis_data,
+                    dead_zone_limit_vel,
+                    integral_decay_rate_vel,
+                    integral_clamping_limit_vel,
+                    measured_vel_x_axis_data,
+                    p_signal_x_vel,
+                    i_signal_x_vel,
+                    d_signal_x_vel,
+                    vel_sp_x_axis_data,
+                    apply_ee_force_x_axis_data);                
                 }
                 else if (k == 1)
                 {
-                  apply_ee_force_y_axis_data += stiffness_lin_vel_y_axis_data * (lin_vel_sp_y_axis_data - measured_lin_vel_y_axis_data);
+                  pid_controller(
+                    stiffness_vel_y_axis_data,
+                    integral_vel_y_axis_data,
+                    damping_vel_y_axis_data,
+                    previous_error_y_vel,
+                    previous_d_signal_y_vel,
+                    lp_filter_alpha_vel,
+                    control_dt,
+                    error_sum_vel_y_axis_data,
+                    dead_zone_limit_vel,
+                    integral_decay_rate_vel,
+                    integral_clamping_limit_vel,
+                    measured_vel_y_axis_data,
+                    p_signal_y_vel,
+                    i_signal_y_vel,
+                    d_signal_y_vel,
+                    vel_sp_y_axis_data,
+                    apply_ee_force_y_axis_data);                
                 }
                 else if (k == 2)
                 {
-                  apply_ee_force_z_axis_data += stiffness_lin_vel_z_axis_data * (lin_vel_sp_z_axis_data - measured_lin_vel_z_axis_data);
+                  pid_controller(
+                    stiffness_vel_z_axis_data,
+                    integral_vel_z_axis_data,
+                    damping_vel_z_axis_data,
+                    previous_error_z_vel,
+                    previous_d_signal_z_vel,
+                    lp_filter_alpha_vel,
+                    control_dt,
+                    error_sum_vel_z_axis_data,
+                    dead_zone_limit_vel,
+                    integral_decay_rate_vel,
+                    integral_clamping_limit_vel,
+                    measured_vel_z_axis_data,
+                    p_signal_z_vel,
+                    i_signal_z_vel,
+                    d_signal_z_vel,
+                    vel_sp_z_axis_data,
+                    apply_ee_force_z_axis_data);                
                 }
               }
             }
@@ -1304,11 +1444,11 @@ namespace motion_specification_action
             break;
 
           case ORIENTATION_QUATERNION:
-            desired_endEffPose_FrameName.M = KDL::Rotation::Quaternion(desired_quat_FrameName[0], desired_quat_FrameName[1], desired_quat_FrameName[2], desired_quat_FrameName[3]);
-            angle_axis_diff_FrameName = KDL::diff(measured_endEffPose_FrameName.M, desired_endEffPose_FrameName.M);
-            apply_ee_torque_x_axis_data = stiffness_roll_axis_data * angle_axis_diff_FrameName(0);
-            apply_ee_torque_y_axis_data = stiffness_pitch_axis_data * angle_axis_diff_FrameName(1);
-            apply_ee_torque_z_axis_data = stiffness_yaw_axis_data * angle_axis_diff_FrameName(2);
+            desired_endEffPose_desired_frame.M = KDL::Rotation::Quaternion(desired_quat_desired_frame[0], desired_quat_desired_frame[1], desired_quat_desired_frame[2], desired_quat_desired_frame[3]);
+            angle_axis_diff_desired_frame = KDL::diff(measured_endEffPose_desired_frame.M, desired_endEffPose_desired_frame.M);
+            apply_ee_torque_x_axis_data = stiffness_roll_axis_data * angle_axis_diff_desired_frame(0);
+            apply_ee_torque_y_axis_data = stiffness_pitch_axis_data * angle_axis_diff_desired_frame(1);
+            apply_ee_torque_z_axis_data = stiffness_yaw_axis_data * angle_axis_diff_desired_frame(2);
 
             break;
 
@@ -1319,17 +1459,25 @@ namespace motion_specification_action
         }
         else
         {
-          std::cout << "[get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE] Constraint type not found" << std::endl;
+          std::cout << "[get_force_and_torque_from_controller_described_in_desired_frame_to_apply_at_EE] Constraint type not found" << std::endl;
           flag = 1; // stop the execution
         }
-      }
-      auto e_pos_x = lin_pos_sp_x_axis_data - measured_lin_pos_x_axis_data;
-      auto e_pos_y = lin_pos_sp_y_axis_data - measured_lin_pos_y_axis_data;
-      auto e_pos_z = lin_pos_sp_z_axis_data - measured_lin_pos_z_axis_data;
+      };
+      auto e_pos_x = pos_sp_x_axis_data - measured_pos_x_axis_data;
+      auto e_pos_y = pos_sp_y_axis_data - measured_pos_y_axis_data;
+      auto e_pos_z = pos_sp_z_axis_data - measured_pos_z_axis_data;
+
+      auto e_vel_x = vel_sp_x_axis_data - measured_vel_x_axis_data;
+      auto e_vel_y = vel_sp_y_axis_data - measured_vel_y_axis_data;
+      auto e_vel_z = vel_sp_z_axis_data - measured_vel_z_axis_data;
       if (log_pid_pos)
       {
-        data_array_log.push_back({e_pos_x,e_pos_y,e_pos_z,lin_pos_sp_x_axis_data,lin_pos_sp_y_axis_data,lin_pos_sp_z_axis_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,stiffness_lin_x_axis_data,stiffness_lin_y_axis_data,stiffness_lin_z_axis_data,integral_lin_x_axis_data,integral_lin_y_axis_data,integral_lin_z_axis_data,error_sum_lin_x_axis_data,error_sum_lin_y_axis_data,error_sum_lin_z_axis_data,damping_gain_x_axis_data,damping_gain_y_axis_data,damping_gain_z_axis_data,p_signal_x,p_signal_y,p_signal_z,i_signal_x,i_signal_y,i_signal_z,d_signal_x,d_signal_y,d_signal_z,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data});
-      }
+        data_array_log_pos.push_back({e_pos_x,e_pos_y,e_pos_z,pos_sp_x_axis_data,pos_sp_y_axis_data,pos_sp_z_axis_data,measured_pos_x_axis_data,measured_pos_y_axis_data,measured_pos_z_axis_data,stiffness_pos_x_axis_data,stiffness_pos_y_axis_data,stiffness_pos_z_axis_data,integral_pos_x_axis_data,integral_pos_y_axis_data,integral_pos_z_axis_data,error_sum_pos_x_axis_data,error_sum_pos_y_axis_data,error_sum_pos_z_axis_data,damping_pos_x_axis_data,damping_pos_y_axis_data,damping_pos_z_axis_data,p_signal_x_pos,p_signal_y_pos,p_signal_z_pos,i_signal_x_pos,i_signal_y_pos,i_signal_z_pos,d_signal_x_pos,d_signal_y_pos,d_signal_z_pos,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data});
+      };
+      if (log_pid_vel)
+      {
+        data_array_log_vel.push_back({e_vel_x,e_vel_y,e_vel_z,vel_sp_x_axis_data,vel_sp_y_axis_data,vel_sp_z_axis_data,measured_vel_x_axis_data,measured_vel_y_axis_data,measured_vel_z_axis_data,stiffness_vel_x_axis_data,stiffness_vel_y_axis_data,stiffness_vel_z_axis_data,integral_vel_x_axis_data,integral_vel_y_axis_data,integral_vel_z_axis_data,error_sum_vel_x_axis_data,error_sum_vel_y_axis_data,error_sum_vel_z_axis_data,damping_vel_x_axis_data,damping_vel_y_axis_data,damping_vel_z_axis_data,p_signal_x_vel,p_signal_y_vel,p_signal_z_vel,i_signal_x_vel,i_signal_y_vel,i_signal_z_vel,d_signal_x_vel,d_signal_y_vel,d_signal_z_vel,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data});
+      };
     }
   }
 
@@ -1454,21 +1602,32 @@ namespace motion_specification_action
       STIFFNESS_GAIN_X_POS = config_file_object[arm_name]["STIFFNESS_GAIN_X_POS"].as<double>();
       STIFFNESS_GAIN_Y_POS = config_file_object[arm_name]["STIFFNESS_GAIN_Y_POS"].as<double>();
       STIFFNESS_GAIN_Z_POS = config_file_object[arm_name]["STIFFNESS_GAIN_Z_POS"].as<double>();
-
-      STIFFNESS_GAIN_X_VELOCITY = config_file_object[arm_name]["STIFFNESS_GAIN_X_VELOCITY"].as<double>();
-      STIFFNESS_GAIN_Y_VELOCITY = config_file_object[arm_name]["STIFFNESS_GAIN_Y_VELOCITY"].as<double>();
-      STIFFNESS_GAIN_Z_VELOCITY = config_file_object[arm_name]["STIFFNESS_GAIN_Z_VELOCITY"].as<double>();
-
-      INTEGRAL_GAIN_X_POS = config_file_object[arm_name]["INTEGRAL_GAIN_X_POS"].as<double>();
-      INTEGRAL_GAIN_Y_POS = config_file_object[arm_name]["INTEGRAL_GAIN_Y_POS"].as<double>();
-      INTEGRAL_GAIN_Z_POS = config_file_object[arm_name]["INTEGRAL_GAIN_Z_POS"].as<double>();
       DAMPING_GAIN_X_POS = config_file_object[arm_name]["DAMPING_GAIN_X_POS"].as<double>();
       DAMPING_GAIN_Y_POS = config_file_object[arm_name]["DAMPING_GAIN_Y_POS"].as<double>();
       DAMPING_GAIN_Z_POS = config_file_object[arm_name]["DAMPING_GAIN_Z_POS"].as<double>();
-      INTEGRAL_CLAMPING_LIMIT_POS = config_file_object[arm_name]["INTEGRAL_CLAMPING_LIMIT_POS"].as<double>();
-
-      DEADZONE_POS_CTRL = config_file_object[arm_name]["DEADZONE_POS_CTRL"].as<double>();
+      INTEGRAL_GAIN_X_POS = config_file_object[arm_name]["INTEGRAL_GAIN_X_POS"].as<double>();
+      INTEGRAL_GAIN_Y_POS = config_file_object[arm_name]["INTEGRAL_GAIN_Y_POS"].as<double>();
+      INTEGRAL_GAIN_Z_POS = config_file_object[arm_name]["INTEGRAL_GAIN_Z_POS"].as<double>();
       INTEGRAL_DECAY_RATE_POS = config_file_object[arm_name]["INTEGRAL_DECAY_RATE_POS"].as<double>();
+      INTEGRAL_CLAMPING_LIMIT_POS = config_file_object[arm_name]["INTEGRAL_CLAMPING_LIMIT_POS"].as<double>();
+      DEADZONE_POS_CTRL = config_file_object[arm_name]["DEADZONE_POS_CTRL"].as<double>();
+      LOW_PASS_FILTER_ALPHA_POS = config_file_object[arm_name]["LOW_PASS_FILTER_ALPHA_POS"].as<double>();
+      LOG_PID_POS = config_file_object[arm_name]["LOG_PID_POS"].as<bool>();
+
+      STIFFNESS_GAIN_X_VEL = config_file_object[arm_name]["STIFFNESS_GAIN_X_VEL"].as<double>();
+      STIFFNESS_GAIN_Y_VEL = config_file_object[arm_name]["STIFFNESS_GAIN_Y_VEL"].as<double>();
+      STIFFNESS_GAIN_Z_VEL = config_file_object[arm_name]["STIFFNESS_GAIN_Z_VEL"].as<double>();
+      DAMPING_GAIN_X_VEL = config_file_object[arm_name]["DAMPING_GAIN_X_VEL"].as<double>();
+      DAMPING_GAIN_Y_VEL = config_file_object[arm_name]["DAMPING_GAIN_Y_VEL"].as<double>();
+      DAMPING_GAIN_Z_VEL = config_file_object[arm_name]["DAMPING_GAIN_Z_VEL"].as<double>();
+      INTEGRAL_GAIN_X_VEL = config_file_object[arm_name]["INTEGRAL_GAIN_X_VEL"].as<double>();
+      INTEGRAL_GAIN_Y_VEL = config_file_object[arm_name]["INTEGRAL_GAIN_Y_VEL"].as<double>();
+      INTEGRAL_GAIN_Z_VEL = config_file_object[arm_name]["INTEGRAL_GAIN_Z_VEL"].as<double>();
+      INTEGRAL_DECAY_RATE_VEL = config_file_object[arm_name]["INTEGRAL_DECAY_RATE_VEL"].as<double>();
+      INTEGRAL_CLAMPING_LIMIT_VEL = config_file_object[arm_name]["INTEGRAL_CLAMPING_LIMIT_VEL"].as<double>();
+      DEADZONE_VEL_CTRL = config_file_object[arm_name]["DEADZONE_VEL_CTRL"].as<double>();
+      LOW_PASS_FILTER_ALPHA_VEL = config_file_object[arm_name]["LOW_PASS_FILTER_ALPHA_VEL"].as<double>();
+      LOG_PID_VEL = config_file_object[arm_name]["LOG_PID_VEL"].as<bool>();
 
       STIFFNESS_GAIN_ROLL = config_file_object[arm_name]["STIFFNESS_GAIN_ROLL"].as<double>();
       STIFFNESS_GAIN_PITCH = config_file_object[arm_name]["STIFFNESS_GAIN_PITCH"].as<double>();
@@ -1485,8 +1644,8 @@ namespace motion_specification_action
       WRENCH_THRESHOLD_LINEAR = config_file_object[arm_name]["WRENCH_THRESHOLD_LINEAR"].as<double>();
       WRENCH_THRESHOLD_ROTATIONAL = config_file_object[arm_name]["WRENCH_THRESHOLD_ROTATIONAL"].as<double>();
 
-      JOINT_TORQUE_THRESHOLD_UNTIL_JNT_3 = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD_UNTIL_JNT_3"].as<double>();
-      JOINT_TORQUE_THRESHOLD_FROM_JNT_4_TO_7 = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD_FROM_JNT_4_TO_7"].as<double>();
+      JOINT_TORQUE_THRESHOLD_UNTIL_JNT_4 = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD_UNTIL_JNT_4"].as<double>();
+      JOINT_TORQUE_THRESHOLD_FROM_JNT_5_TO_7 = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD_FROM_JNT_5_TO_7"].as<double>();
 
       JOINT_1_ANGLE_LIMIT_DEG = config_file_object[arm_name]["JOINT_1_ANGLE_LIMIT_DEG"].as<double>();
       JOINT_3_ANGLE_LIMIT_DEG = config_file_object[arm_name]["JOINT_3_ANGLE_LIMIT_DEG"].as<double>();
@@ -1495,40 +1654,48 @@ namespace motion_specification_action
       DESIRED_TIME_STEP = config_file_object[arm_name]["DESIRED_TIME_STEP"].as<double>();
       SAVE_LOG_EVERY_NTH_STEP = config_file_object[arm_name]["SAVE_LOG_EVERY_NTH_STEP"].as<int>();
       control_dt = DESIRED_TIME_STEP;
-      LOW_PASS_FILTER_ALPHA = config_file_object[arm_name]["LOW_PASS_FILTER_ALPHA"].as<double>();
-      LOG_PID_POS = config_file_object[arm_name]["LOG_PID_POS"].as<bool>();
 
-      log_pid_pos = LOG_PID_POS;
-      lp_filter_alpha = LOW_PASS_FILTER_ALPHA;
-
-      stiffness_lin_x_axis_data = STIFFNESS_GAIN_X_POS;
-      stiffness_lin_y_axis_data = STIFFNESS_GAIN_Y_POS;
-      stiffness_lin_z_axis_data = STIFFNESS_GAIN_Z_POS;
-
-      stiffness_lin_vel_x_axis_data = STIFFNESS_GAIN_X_VELOCITY;
-      stiffness_lin_vel_y_axis_data = STIFFNESS_GAIN_Y_VELOCITY;
-      stiffness_lin_vel_z_axis_data = STIFFNESS_GAIN_Z_VELOCITY;
-
-      integral_lin_x_axis_data = INTEGRAL_GAIN_X_POS;
-      integral_lin_y_axis_data = INTEGRAL_GAIN_Y_POS;
-      integral_lin_z_axis_data = INTEGRAL_GAIN_Z_POS;
-
-      damping_gain_x_axis_data = DAMPING_GAIN_X_POS;
-      damping_gain_y_axis_data = DAMPING_GAIN_Y_POS;
-      damping_gain_z_axis_data = DAMPING_GAIN_Z_POS;
-
-      dead_zone_limit_pos = DEADZONE_POS_CTRL;
+      
+      stiffness_pos_x_axis_data = STIFFNESS_GAIN_X_POS;
+      stiffness_pos_y_axis_data = STIFFNESS_GAIN_Y_POS;
+      stiffness_pos_z_axis_data = STIFFNESS_GAIN_Z_POS;
+      
+      damping_pos_x_axis_data = DAMPING_GAIN_X_POS;
+      damping_pos_y_axis_data = DAMPING_GAIN_Y_POS;
+      damping_pos_z_axis_data = DAMPING_GAIN_Z_POS;
+      
+      integral_pos_x_axis_data = INTEGRAL_GAIN_X_POS;
+      integral_pos_y_axis_data = INTEGRAL_GAIN_Y_POS;
+      integral_pos_z_axis_data = INTEGRAL_GAIN_Z_POS;
+      
       integral_decay_rate_pos = INTEGRAL_DECAY_RATE_POS;
+      integral_clamping_limit_pos = INTEGRAL_CLAMPING_LIMIT_POS;
+      dead_zone_limit_pos = DEADZONE_POS_CTRL;
+      lp_filter_alpha_pos = LOW_PASS_FILTER_ALPHA_POS;
+      log_pid_pos = LOG_PID_POS;
+      
+      stiffness_vel_x_axis_data = STIFFNESS_GAIN_X_VEL;
+      stiffness_vel_y_axis_data = STIFFNESS_GAIN_Y_VEL;
+      stiffness_vel_z_axis_data = STIFFNESS_GAIN_Z_VEL;
+
+      damping_vel_x_axis_data = DAMPING_GAIN_X_VEL;
+      damping_vel_y_axis_data = DAMPING_GAIN_Y_VEL;
+      damping_vel_z_axis_data = DAMPING_GAIN_Z_VEL;
+
+      integral_vel_x_axis_data = INTEGRAL_GAIN_X_VEL;
+      integral_vel_y_axis_data = INTEGRAL_GAIN_Y_VEL;
+      integral_vel_z_axis_data = INTEGRAL_GAIN_Z_VEL;
+
+      integral_decay_rate_vel = INTEGRAL_DECAY_RATE_VEL;
+      integral_clamping_limit_vel = INTEGRAL_CLAMPING_LIMIT_VEL;
+      dead_zone_limit_vel = DEADZONE_VEL_CTRL;
+      lp_filter_alpha_vel = LOW_PASS_FILTER_ALPHA_VEL;
+      log_pid_vel = LOG_PID_VEL;
 
       stiffness_forearm_y_axis_angle = STIFFNESS_FOREARM_JNT_LIMIT;
       forearm_link_y_axis_angle_sp = FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG * M_PI / 180;
       deadband_forearm_y_axis_angle = DEADBAND_FOREARM_IN_DEG * M_PI / 180;
       torque_limit_forearm_link = TORQUE_MAGNITUDE_LIMIT_FOREARM_LINK;
-
-      error_sum_lin_x_axis_data = 0.0;
-      error_sum_lin_y_axis_data = 0.0;
-      error_sum_lin_z_axis_data = 0.0;
-      integral_clamping_limit_pos = INTEGRAL_CLAMPING_LIMIT_POS;
 
       stiffness_roll_axis_data = STIFFNESS_GAIN_ROLL;
       stiffness_pitch_axis_data = STIFFNESS_GAIN_PITCH;
@@ -1570,8 +1737,8 @@ namespace motion_specification_action
       get_end_effector_pose_and_twist(
           jnt_velocity, jnt_positions, jnt_velocities,
           measured_endEffPose_BL, measured_endEffTwist_BL,
-          measured_endEffPose_FrameName, measured_endEffTwist_FrameName,
-          fkSolverPos, fkSolverVel, BL_wrt_FrameName_frame);
+          measured_endEffPose_desired_frame, measured_endEffTwist_desired_frame,
+          fkSolverPos, fkSolverVel, BL_wrt_desired_frame);
 
       calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                     jnt_velocity, jd_qd, xdd,
@@ -1596,24 +1763,24 @@ namespace motion_specification_action
       get_end_effector_pose_and_twist(
           jnt_velocity, jnt_positions, jnt_velocities,
           measured_endEffPose_BL, measured_endEffTwist_BL,
-          measured_endEffPose_FrameName, measured_endEffTwist_FrameName,
-          fkSolverPos, fkSolverVel, BL_wrt_FrameName_frame);
+          measured_endEffPose_desired_frame, measured_endEffTwist_desired_frame,
+          fkSolverPos, fkSolverVel, BL_wrt_desired_frame);
 
-      measured_lin_pos_x_axis_data = measured_endEffPose_FrameName.p.x();
-      measured_lin_vel_x_axis_data = measured_endEffTwist_FrameName.GetTwist().vel.x();
-      measured_lin_pos_y_axis_data = measured_endEffPose_FrameName.p.y();
-      measured_lin_vel_y_axis_data = measured_endEffTwist_FrameName.GetTwist().vel.y();
-      measured_lin_pos_z_axis_data = measured_endEffPose_FrameName.p.z();
-      measured_lin_vel_z_axis_data = measured_endEffTwist_FrameName.GetTwist().vel.z();
-      measured_endEffPose_FrameName.M.GetQuaternion(measured_quat_FrameName[0], measured_quat_FrameName[1], measured_quat_FrameName[2], measured_quat_FrameName[3]);
-      measured_endEffPose_FrameName.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
+      measured_pos_x_axis_data = measured_endEffPose_desired_frame.p.x();
+      measured_vel_x_axis_data = measured_endEffTwist_desired_frame.GetTwist().vel.x();
+      measured_pos_y_axis_data = measured_endEffPose_desired_frame.p.y();
+      measured_vel_y_axis_data = measured_endEffTwist_desired_frame.GetTwist().vel.y();
+      measured_pos_z_axis_data = measured_endEffPose_desired_frame.p.z();
+      measured_vel_z_axis_data = measured_endEffTwist_desired_frame.GetTwist().vel.z();
+      measured_endEffPose_desired_frame.M.GetQuaternion(measured_quat_desired_frame[0], measured_quat_desired_frame[1], measured_quat_desired_frame[2], measured_quat_desired_frame[3]);
+      measured_endEffPose_desired_frame.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
 
       auto current_time = std::chrono::high_resolution_clock::now();
       auto time_since_last_publish = std::chrono::duration<double>(current_time-previous_state_publish_time);
       if (time_since_last_publish.count() > state_publish_time_step)
       {
         publish_joint_states(jnt_positions);
-        publish_ee_pose(measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data, measured_quat_FrameName, frame_name);
+        publish_ee_pose(measured_pos_x_axis_data, measured_pos_y_axis_data, measured_pos_z_axis_data, measured_quat_desired_frame, frame_name);
         previous_state_publish_time = current_time;
       };
 
@@ -1624,10 +1791,14 @@ namespace motion_specification_action
           return diff;
       };
 
-      if (goal_accepted_and_executing && reach_pre_configuration_joint_angles && !pre_configuration_joint_angles_reached)
+      if (goal_accepted_and_executing)
       {
         switch_to_joint_impendance_control = false;
         jnt_impedance_setpoint_is_set = false;
+      }
+
+      if (goal_accepted_and_executing && reach_pre_configuration_joint_angles && !pre_configuration_joint_angles_reached)
+      {
         for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; ++i)
         {
           jnt_angle_diff = pre_configuration_joint_angles_radians[i] - jnt_positions(i);
@@ -1642,6 +1813,7 @@ namespace motion_specification_action
                       << " deviates by " << jnt_angle_diff << " rad." << std::endl;
             reach_pre_configuration_joint_angles = false;
             abort_motion_execution = true;
+            goal_accepted_and_executing = false;
             break;
           }
         }
@@ -1678,6 +1850,7 @@ namespace motion_specification_action
               jnt_positions_setpoint(i) = pre_configuration_joint_angles_radians[i];
             }
             jnt_impedance_setpoint_is_set = true;
+            goal_accepted_and_executing = false;
             std::cout << "Entering joint impedance mode as pre-config is reached and there are no further goals" << std::endl;
           }
         }
@@ -1688,17 +1861,17 @@ namespace motion_specification_action
         if (pre_condition_exists && !pre_condition_satisfied)
         {
           check_pre_or_post_condition_satisfaction(
-              measured_lin_pos_x_axis_data,
-              measured_lin_pos_y_axis_data,
-              measured_lin_pos_z_axis_data,
+              measured_pos_x_axis_data,
+              measured_pos_y_axis_data,
+              measured_pos_z_axis_data,
               measured_roll_data,
               measured_pitch_data,
               measured_yaw_data,
-              measured_lin_vel_x_axis_data,
-              measured_lin_vel_y_axis_data,
-              measured_lin_vel_z_axis_data,
+              measured_vel_x_axis_data,
+              measured_vel_y_axis_data,
+              measured_vel_z_axis_data,
               time_since_start_per_condition_seconds,
-              linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
+              linkWrenches[kinova_constants::NUMBER_OF_JOINTS],
               pre_condition_constraint_count,
               constraint_type_str,
               arm_name,
@@ -1726,17 +1899,17 @@ namespace motion_specification_action
           if (post_condition_exists && !post_condition_satisfied)
           {
             check_pre_or_post_condition_satisfaction(
-                measured_lin_pos_x_axis_data,
-                measured_lin_pos_y_axis_data,
-                measured_lin_pos_z_axis_data,
+                measured_pos_x_axis_data,
+                measured_pos_y_axis_data,
+                measured_pos_z_axis_data,
                 measured_roll_data,
                 measured_pitch_data,
                 measured_yaw_data,
-                measured_lin_vel_x_axis_data,
-                measured_lin_vel_y_axis_data,
-                measured_lin_vel_z_axis_data,
+                measured_vel_x_axis_data,
+                measured_vel_y_axis_data,
+                measured_vel_z_axis_data,
                 time_since_start_per_condition_seconds,
-                linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS],
+                linkWrenches[kinova_constants::NUMBER_OF_JOINTS],
                 post_condition_constraint_count,
                 constraint_type_str,
                 arm_name,
@@ -1750,95 +1923,126 @@ namespace motion_specification_action
           {
             if (!switch_to_joint_impendance_control)
             {
-              std::cout << "Post condition satisfied. Switching to impedance control mode." << std::endl;
+              RCLCPP_INFO(this->get_logger(), "Post condition satisfied. Switching to impedance control mode.");
               switch_to_joint_impendance_control = true;
+              goal_accepted_and_executing = false;
             }
           }
           else
           {
             get_setpoints_from_motion_specification(
-                lin_pos_sp_x_axis_data,
-                lin_pos_sp_y_axis_data,
-                lin_pos_sp_z_axis_data,
-                lin_vel_sp_x_axis_data,
-                lin_vel_sp_y_axis_data,
-                lin_vel_sp_z_axis_data,
+                pos_sp_x_axis_data,
+                pos_sp_y_axis_data,
+                pos_sp_z_axis_data,
+                vel_sp_x_axis_data,
+                vel_sp_y_axis_data,
+                vel_sp_z_axis_data,
                 force_to_apply_x_axis,
                 force_to_apply_y_axis,
                 force_to_apply_z_axis,
                 per_condition_constraint_count,
-                desired_quat_FrameName,
+                desired_quat_desired_frame,
                 motion_specification_params_object,
                 arm_name);
 
-            get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
-                stiffness_lin_vel_x_axis_data,
-                stiffness_lin_vel_y_axis_data,
-                stiffness_lin_vel_z_axis_data,
-                stiffness_lin_x_axis_data,
-                stiffness_lin_y_axis_data,
-                stiffness_lin_z_axis_data,
-                integral_lin_x_axis_data,
-                integral_lin_y_axis_data,
-                integral_lin_z_axis_data,
-                damping_gain_x_axis_data,
-                damping_gain_y_axis_data,
-                damping_gain_z_axis_data,
+            get_force_and_torque_from_controller_described_in_desired_frame_to_apply_at_EE(
+                stiffness_pos_x_axis_data,
+                stiffness_pos_y_axis_data,
+                stiffness_pos_z_axis_data,
+                integral_pos_x_axis_data,
+                integral_pos_y_axis_data,
+                integral_pos_z_axis_data,
+                damping_pos_x_axis_data,
+                damping_pos_y_axis_data,
+                damping_pos_z_axis_data,
                 previous_error_x_pos,
                 previous_error_y_pos,
                 previous_error_z_pos,
-                previous_d_signal_x,
-                previous_d_signal_y,
-                previous_d_signal_z,
-                lp_filter_alpha,
-                log_pid_pos,
-                control_dt,
-                error_sum_lin_z_axis_data,
-                error_sum_lin_y_axis_data,
-                error_sum_lin_x_axis_data,
+                previous_d_signal_x_pos,
+                previous_d_signal_y_pos,
+                previous_d_signal_z_pos,
+                error_sum_pos_x_axis_data,
+                error_sum_pos_y_axis_data,
+                error_sum_pos_z_axis_data,
                 integral_clamping_limit_pos,
+                integral_decay_rate_pos,
+                dead_zone_limit_pos,
+                lp_filter_alpha_pos,
+                measured_pos_x_axis_data,
+                measured_pos_y_axis_data,
+                measured_pos_z_axis_data,
+                pos_sp_x_axis_data,
+                pos_sp_y_axis_data,
+                pos_sp_z_axis_data,
+                p_signal_x_pos,
+                i_signal_x_pos,
+                d_signal_x_pos,
+                p_signal_y_pos,
+                i_signal_y_pos,
+                d_signal_y_pos,
+                p_signal_z_pos,
+                i_signal_z_pos,
+                d_signal_z_pos,
+                log_pid_pos,
+                stiffness_vel_x_axis_data,
+                stiffness_vel_y_axis_data,
+                stiffness_vel_z_axis_data,
+                integral_vel_x_axis_data,
+                integral_vel_y_axis_data,
+                integral_vel_z_axis_data,
+                damping_vel_x_axis_data,
+                damping_vel_y_axis_data,
+                damping_vel_z_axis_data,
+                previous_error_x_vel,
+                previous_error_y_vel,
+                previous_error_z_vel,
+                previous_d_signal_x_vel,
+                previous_d_signal_y_vel,
+                previous_d_signal_z_vel,
+                error_sum_vel_x_axis_data,
+                error_sum_vel_y_axis_data,
+                error_sum_vel_z_axis_data,
+                integral_clamping_limit_vel,
+                integral_decay_rate_vel,
+                dead_zone_limit_vel,
+                lp_filter_alpha_vel,
+                measured_vel_x_axis_data,
+                measured_vel_y_axis_data,
+                measured_vel_z_axis_data,
+                vel_sp_x_axis_data,
+                vel_sp_y_axis_data,
+                vel_sp_z_axis_data,
+                p_signal_x_vel,
+                i_signal_x_vel,
+                d_signal_x_vel,
+                p_signal_y_vel,
+                i_signal_y_vel,
+                d_signal_y_vel,
+                p_signal_z_vel,
+                i_signal_z_vel,
+                d_signal_z_vel,
+                log_pid_vel,
+                desired_quat_desired_frame,
                 stiffness_roll_axis_data,
                 stiffness_pitch_axis_data,
                 stiffness_yaw_axis_data,
-                measured_lin_pos_x_axis_data,
-                measured_lin_pos_y_axis_data,
-                measured_lin_pos_z_axis_data,
-                measured_lin_vel_x_axis_data,
-                measured_lin_vel_y_axis_data,
-                measured_lin_vel_z_axis_data,
-                lin_pos_sp_x_axis_data,
-                lin_pos_sp_y_axis_data,
-                lin_pos_sp_z_axis_data,
-                lin_vel_sp_x_axis_data,
-                lin_vel_sp_y_axis_data,
-                lin_vel_sp_z_axis_data,
                 force_to_apply_x_axis,
                 force_to_apply_y_axis,
                 force_to_apply_z_axis,
-                dead_zone_limit_pos,
-                integral_decay_rate_pos,
-                p_signal_x,
-                i_signal_x,
-                d_signal_x,
-                p_signal_y,
-                i_signal_y,
-                d_signal_y,
-                p_signal_z,
-                i_signal_z,
-                d_signal_z,
-                desired_quat_FrameName,
                 apply_ee_force_x_axis_data,
                 apply_ee_force_y_axis_data,
                 apply_ee_force_z_axis_data,
                 apply_ee_torque_x_axis_data,
                 apply_ee_torque_y_axis_data,
                 apply_ee_torque_z_axis_data,
-                desired_endEffPose_FrameName,
-                measured_endEffPose_FrameName,
+                desired_endEffPose_desired_frame,
+                measured_endEffPose_desired_frame,
                 per_condition_constraint_count,
-                angle_axis_diff_FrameName,
+                angle_axis_diff_desired_frame,
+                control_dt,
                 motion_specification_params_object,
-                arm_name);
+                arm_name
+                );
 
             get_ForeArm_Link_wrench(jnt_positions, 
                                     measured_ForeArm_Link_Pose_BL, 
@@ -1864,7 +2068,7 @@ namespace motion_specification_action
 
         if (!jnt_impedance_setpoint_is_set)
         {
-          std::cout << "Entering joint impedance mode" << std::endl;
+          RCLCPP_INFO(this->get_logger(), "Entering joint impedance mode");
           jnt_positions_setpoint = jnt_positions;
           jnt_impedance_setpoint_is_set = true;
         }
@@ -1883,60 +2087,63 @@ namespace motion_specification_action
       }
       else if (!reach_pre_configuration_joint_angles)
       {
-        // write the ee torques to linkWrenches_FrameName
-        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(0) = -apply_ee_force_x_axis_data;
-        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(1) = -apply_ee_force_y_axis_data;
-        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(2) = -apply_ee_force_z_axis_data;
-        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(0) = -apply_ee_torque_x_axis_data;
-        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(1) = -apply_ee_torque_y_axis_data;
-        linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(2) = -apply_ee_torque_z_axis_data;
+        // write the ee torques to linkWrenches
+        linkWrenches[kinova_constants::NUMBER_OF_JOINTS].force(0) = -apply_ee_force_x_axis_data;
+        linkWrenches[kinova_constants::NUMBER_OF_JOINTS].force(1) = -apply_ee_force_y_axis_data;
+        linkWrenches[kinova_constants::NUMBER_OF_JOINTS].force(2) = -apply_ee_force_z_axis_data;
+        linkWrenches[kinova_constants::NUMBER_OF_JOINTS].torque(0) = -apply_ee_torque_x_axis_data;
+        linkWrenches[kinova_constants::NUMBER_OF_JOINTS].torque(1) = -apply_ee_torque_y_axis_data;
+        linkWrenches[kinova_constants::NUMBER_OF_JOINTS].torque(2) = -apply_ee_torque_z_axis_data;
 
         // thresholding in cartesian space of the end effector
         for (int i = 0; i < 3; i++)
         {
-          if (linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(i) > 0.0)
+          if (linkWrenches[kinova_constants::NUMBER_OF_JOINTS].force(i) > 0.0)
           {
-            linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::min(WRENCH_THRESHOLD_LINEAR, linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(i));
+            linkWrenches[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::min(WRENCH_THRESHOLD_LINEAR, linkWrenches[kinova_constants::NUMBER_OF_JOINTS].force(i));
           }
           else
           {
-            linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::max(-WRENCH_THRESHOLD_LINEAR, linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].force(i));
+            linkWrenches[kinova_constants::NUMBER_OF_JOINTS].force(i) = std::max(-WRENCH_THRESHOLD_LINEAR, linkWrenches[kinova_constants::NUMBER_OF_JOINTS].force(i));
           }
 
-          if (linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i) > 0.0)
+          if (linkWrenches[kinova_constants::NUMBER_OF_JOINTS].torque(i) > 0.0)
           {
-            linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::min(WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i));
+            linkWrenches[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::min(WRENCH_THRESHOLD_ROTATIONAL, linkWrenches[kinova_constants::NUMBER_OF_JOINTS].torque(i));
           }
           else
           {
-            linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::max(-WRENCH_THRESHOLD_ROTATIONAL, linkWrenches_FrameName[kinova_constants::NUMBER_OF_JOINTS].torque(i));
+            linkWrenches[kinova_constants::NUMBER_OF_JOINTS].torque(i) = std::max(-WRENCH_THRESHOLD_ROTATIONAL, linkWrenches[kinova_constants::NUMBER_OF_JOINTS].torque(i));
           }
         };
 
-        // LinkWrenches are calculated in BL frame. As RNE solver requires them in EE frame, the wrenches are transformed from BL to EE frame
-        linkWrenches_EE[NUM_LINKS - 1].force = measured_endEffPose_FrameName.M.Inverse() * linkWrenches_FrameName[NUM_LINKS - 1].force;
-        linkWrenches_EE[NUM_LINKS - 1].torque = measured_endEffPose_FrameName.M.Inverse() * linkWrenches_FrameName[NUM_LINKS - 1].torque;
-        linkWrenches_EE[2].torque(0) = -apply_forearm_x_axis_torque;
-        linkWrenches_EE[2].torque(1) = -apply_forearm_y_axis_torque;
-        linkWrenches_EE[2].torque(2) = -apply_forearm_z_axis_torque;
+        // LinkWrenches are set wrt BL frame. As RNE solver requires them in the frame of respective link, 
+        // the wrenches are transformed from frame in which motion specification is described to the EE frame
+        linkWrenches[NUM_LINKS - 1].force = measured_endEffPose_desired_frame.M.Inverse() * linkWrenches[NUM_LINKS - 1].force;
+        linkWrenches[NUM_LINKS - 1].torque = measured_endEffPose_desired_frame.M.Inverse() * linkWrenches[NUM_LINKS - 1].torque;
+        
+        // The forearm torques are already determined in its link
+        linkWrenches[2].torque(0) = -apply_forearm_x_axis_torque;
+        linkWrenches[2].torque(1) = -apply_forearm_y_axis_torque;
+        linkWrenches[2].torque(2) = -apply_forearm_z_axis_torque;
 
         calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                     jnt_velocity, jd_qd, xdd,
                                     xdd_minus_jd_qd, jnt_accelerations,
                                     jnt_positions, jnt_velocities,
-                                    linkWrenches_EE, jnt_torques_cmd);
+                                    linkWrenches, jnt_torques_cmd);
       }
 
       // thresholding the jnt_torques_cmd before sending to the robot
       for (int i = 0; i < kinova_constants::NUMBER_OF_JOINTS; i++)
       {
-        if (i < 3)
+        if (i < 4)
         {
-          joint_torque_threshold = JOINT_TORQUE_THRESHOLD_UNTIL_JNT_3;
+          joint_torque_threshold = JOINT_TORQUE_THRESHOLD_UNTIL_JNT_4;
         }
         else
         {
-          joint_torque_threshold = JOINT_TORQUE_THRESHOLD_FROM_JNT_4_TO_7;
+          joint_torque_threshold = JOINT_TORQUE_THRESHOLD_FROM_JNT_5_TO_7;
         }
         if (std::abs(jnt_torques_cmd(i)) > joint_torque_threshold)
         {
@@ -2001,20 +2208,31 @@ namespace motion_specification_action
 
       if (log_pid_pos && iteration_count % SAVE_LOG_EVERY_NTH_STEP == 0)
       {
-        appendDataToFile_dynamic_size(data_stream_log, data_array_log);
-        data_array_log.clear();
+        appendDataToFile_dynamic_size(pos_pid_data_stream_log, data_array_log_pos);
+        data_array_log_pos.clear();
+      }
+      if (log_pid_vel && iteration_count % SAVE_LOG_EVERY_NTH_STEP == 0)
+      {
+        appendDataToFile_dynamic_size(vel_pid_data_stream_log, data_array_log_vel);
+        data_array_log_vel.clear();
       }
     }
     if (log_pid_pos)
     {
-      close_log_files(data_array_log, data_stream_log);
+      close_log_files(data_array_log_pos, pos_pid_data_stream_log);
+      std::cout << "Data collection completed. Log file name: " << pos_pid_log_file_name << "\n";
+    }
+    if (log_pid_vel)
+    {
+      close_log_files(data_array_log_vel, vel_pid_data_stream_log);
+      std::cout << "Data collection completed. Log file name: " << vel_pid_log_file_name << "\n";
     }
     kinova_arm_mediator.set_control_mode(control_mode::POSITION, nullptr);
   }
 
   void MotionSpecificationActionServer::get_transform_BL_wrt_desired_frame(
       const std::string &frame_name,
-      KDL::Frame &BL_wrt_FrameName_frame,
+      KDL::Frame &BL_wrt_desired_frame,
       geometry_msgs::msg::TransformStamped &transform_stamped,
       std::chrono::duration<double> &transform_timeout_duration,
       bool &transform_available)
@@ -2050,7 +2268,7 @@ namespace motion_specification_action
         rclcpp::spin_some(this->get_node_base_interface());
       }
     }
-    BL_wrt_FrameName_frame = tf2::transformToKDL(transform_stamped);
+    BL_wrt_desired_frame = tf2::transformToKDL(transform_stamped);
   }
 
   template <size_t N>
@@ -2063,7 +2281,6 @@ namespace motion_specification_action
       data_array_log.clear();
     }
     data_stream_log.close();
-    std::cout << "Data collection completed. Log file name: " << log_file_name << "\n";
   }
 
   void MotionSpecificationActionServer::execute(const std::shared_ptr<GoalHandleMotionSpecification> goal_handle)
@@ -2073,8 +2290,8 @@ namespace motion_specification_action
     goal_accepted_and_executing = false;
     const auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<MotionSpecification::Feedback>();
-    auto &tcp_wrt_FrameName = feedback->tcp_position;
-    tcp_wrt_FrameName = {0.0, 0.0, 0.0};
+    auto &tcp_wrt_desired_frame = feedback->tcp_position;
+    tcp_wrt_desired_frame = {0.0, 0.0, 0.0};
     auto result = std::make_shared<MotionSpecification::Result>();
 
     try
@@ -2131,7 +2348,7 @@ namespace motion_specification_action
 
     get_transform_BL_wrt_desired_frame(
         frame_name,
-        BL_wrt_FrameName_frame,
+        BL_wrt_desired_frame,
         transform_stamped,
         transform_timeout_duration,
         transform_available);
@@ -2139,10 +2356,11 @@ namespace motion_specification_action
     // Initialize the parameters
     reset_flags();
     goal_accepted_and_executing = true;
+    goal_handle_result_published = false;
 
-    while (goal_accepted_and_executing && rclcpp::ok())
+    while (!goal_handle_result_published && rclcpp::ok())
     {
-      tcp_wrt_FrameName = {measured_lin_pos_x_axis_data, measured_lin_pos_y_axis_data, measured_lin_pos_z_axis_data};
+      tcp_wrt_desired_frame = {measured_pos_x_axis_data, measured_pos_y_axis_data, measured_pos_z_axis_data};
       goal_handle->publish_feedback(feedback);
 
       if (goal_handle->is_canceling())
@@ -2151,10 +2369,12 @@ namespace motion_specification_action
         goal_handle->canceled(result);
         RCLCPP_INFO(this->get_logger(), "Goal canceled");
         goal_accepted_and_executing = false;
+        goal_handle_result_published = true;
         return;
       }
       if (post_condition_satisfied)
       {
+        goal_handle_result_published = true;
         goal_accepted_and_executing = false;
         result->motion_successful = true;
         result->post_condition_indices = post_condition_indices;
@@ -2165,6 +2385,7 @@ namespace motion_specification_action
       }
       if (pre_configuration_joint_angles_reached && reach_pre_configuration_joint_angles)
       {
+        goal_handle_result_published = true;
         goal_accepted_and_executing = false;
         result->motion_successful = true;
         post_condition_indices.clear();
@@ -2178,7 +2399,7 @@ namespace motion_specification_action
         post_condition_indices.clear();
         goal_handle->abort(result);
         RCLCPP_INFO(this->get_logger(), "Goal aborted due to abort signal.");
-        goal_accepted_and_executing = false;
+        goal_handle_result_published = true;
         return;
       }
       if (flag == 1)
@@ -2187,6 +2408,7 @@ namespace motion_specification_action
         post_condition_indices.clear();
         goal_handle->abort(result);
         RCLCPP_INFO(this->get_logger(), "Key interruption detected. Stopping server.");
+        goal_handle_result_published = true;
         goal_accepted_and_executing = false;
         return;
       }
