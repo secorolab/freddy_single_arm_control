@@ -107,7 +107,8 @@ namespace motion_specification_action
     std::chrono::duration<double> transform_timeout_duration;
     std::chrono::high_resolution_clock::time_point ms_start_time;
     bool transform_available;
-    bool log_bool;
+    bool log_pid_pos;
+    bool log_pid_vel;
     std::stringstream ss;
 
     std::thread control_loop_thread_;
@@ -131,29 +132,39 @@ namespace motion_specification_action
     double WRENCH_THRESHOLD_ROTATIONAL;
     double JOINT_TORQUE_THRESHOLD_UNTIL_JNT_3;
     double JOINT_TORQUE_THRESHOLD_FROM_JNT_4_TO_7;
-    double STIFFNESS_GAIN_X;
-    double STIFFNESS_GAIN_Y;
-    double STIFFNESS_GAIN_Z;
-    double DAMPING_GAIN_X;
-    double DAMPING_GAIN_Y;
-    double DAMPING_GAIN_Z;
+    double STIFFNESS_GAIN_X_POS;
+    double STIFFNESS_GAIN_Y_POS;
+    double STIFFNESS_GAIN_Z_POS;
+    double DAMPING_GAIN_X_POS;
+    double DAMPING_GAIN_Y_POS;
+    double DAMPING_GAIN_Z_POS;
     double DEADZONE_POS_CTRL;
+    double DEADZONE_VEL_CTRL;
     double STIFFNESS_GAIN_X_VELOCITY;
     double STIFFNESS_GAIN_Y_VELOCITY;
     double STIFFNESS_GAIN_Z_VELOCITY;
+    double DAMPING_GAIN_X_VELOCITY;
+    double DAMPING_GAIN_Y_VELOCITY;
+    double DAMPING_GAIN_Z_VELOCITY;
+    double INTEGRAL_GAIN_X_VELOCITY;
+    double INTEGRAL_GAIN_Y_VELOCITY;
+    double INTEGRAL_GAIN_Z_VELOCITY;
     double DEADBAND_FOREARM_IN_DEG;
     double TORQUE_MAGNITUDE_LIMIT_FOREARM_LINK;
     double FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG;
     double STIFFNESS_FOREARM_JNT_LIMIT;
     int SAVE_LOG_EVERY_NTH_STEP;
     double LOW_PASS_FILTER_ALPHA;
-    double LOG_BOOL;
+    double LOG_PID_POS;
+    double LOG_PID_VEL;
 
-    double INTEGRAL_GAIN_X;
-    double INTEGRAL_GAIN_Y;
-    double INTEGRAL_GAIN_Z;
-    double INTEGRAL_CLAMPING_LIMIT;
-    double INTEGRAL_DECAY_RATE;
+    double INTEGRAL_GAIN_X_POS;
+    double INTEGRAL_GAIN_Y_POS;
+    double INTEGRAL_GAIN_Z_POS;
+    double INTEGRAL_CLAMPING_LIMIT_POS;
+    double INTEGRAL_CLAMPING_LIMIT_VEL;
+    double INTEGRAL_DECAY_RATE_POS;
+    double INTEGRAL_DECAY_RATE_VEL;
     double STIFFNESS_GAIN_ROLL;
     double STIFFNESS_GAIN_PITCH;
     double STIFFNESS_GAIN_YAW;
@@ -261,10 +272,20 @@ namespace motion_specification_action
     double stiffness_lin_vel_y_axis_data;
     double stiffness_lin_vel_z_axis_data;
 
+    double damping_lin_vel_x_axis_data;
+    double damping_lin_vel_y_axis_data;
+    double damping_lin_vel_z_axis_data;
+
+    double integral_lin_vel_x_axis_data;
+    double integral_lin_vel_y_axis_data;
+    double integral_lin_vel_z_axis_data;
+
     double integral_lin_x_axis_data;
     double integral_lin_y_axis_data;
     double integral_lin_z_axis_data;
-    double integral_clamping_limit;
+
+    double integral_clamping_limit_pos;
+    double integral_clamping_limit_vel;
 
     double damping_gain_x_axis_data;
     double damping_gain_y_axis_data;
@@ -279,8 +300,8 @@ namespace motion_specification_action
     double p_signal_z;
     double i_signal_z;
     double d_signal_z;
-    double dead_zone_limit;
-    double integral_decay_rate;
+    double dead_zone_limit_pos;
+    double integral_decay_rate_pos;
     double lp_filter_alpha;
 
     double forearm_link_y_axis_angle_sp;
@@ -565,12 +586,12 @@ namespace motion_specification_action
         double &pid_signal);
 
     void get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
-        const double &stiffness_lin_x_axis_data,
-        const double &stiffness_lin_y_axis_data,
-        const double &stiffness_lin_z_axis_data,
         const double &stiffness_lin_vel_x_axis_data,
         const double &stiffness_lin_vel_y_axis_data,
         const double &stiffness_lin_vel_z_axis_data,
+        const double &stiffness_lin_x_axis_data,
+        const double &stiffness_lin_y_axis_data,
+        const double &stiffness_lin_z_axis_data,
         const double &integral_lin_x_axis_data,
         const double &integral_lin_y_axis_data,
         const double &integral_lin_z_axis_data,
@@ -584,12 +605,12 @@ namespace motion_specification_action
         double &previous_d_signal_y,
         double &previous_d_signal_z,
         double &lp_filter_alpha,
-        const bool &log_bool,
+        const bool &log_pid_pos,
         const double &control_dt,
         double &error_sum_lin_x_axis_data,
         double &error_sum_lin_y_axis_data,
         double &error_sum_lin_z_axis_data,
-        const double &integral_clamping_limit,
+        const double &integral_clamping_limit_pos,
         const double &stiffness_roll_axis_data,
         const double &stiffness_pitch_axis_data,
         const double &stiffness_yaw_axis_data,
@@ -608,8 +629,8 @@ namespace motion_specification_action
         const double &force_to_apply_x_axis,
         const double &force_to_apply_y_axis,
         const double &force_to_apply_z_axis,
-        const double &dead_zone_limit,
-        const double &integral_decay_rate,
+        const double &dead_zone_limit_pos,
+        const double &integral_decay_rate_pos,
         double &p_signal_x,
         double &i_signal_x,
         double &d_signal_x,

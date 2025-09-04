@@ -30,7 +30,7 @@ namespace motion_specification_action
         previous_d_signal_y(0.0),
         previous_d_signal_z(0.0),
         lp_filter_alpha(0.0),
-        log_bool(false),
+        log_pid_pos(false),
         control_dt(0.001),
         desired_quat_FrameName{0.0, 0.0, 0.0, 1.0},
         measured_quat_FrameName{0.0, 0.0, 0.0, 1.0},
@@ -54,8 +54,8 @@ namespace motion_specification_action
         damping_term_x_axis_data(0.0),
         damping_term_y_axis_data(0.0),
         damping_term_z_axis_data(0.0),
-        integral_decay_rate(0.0),
-        dead_zone_limit(0.0),
+        integral_decay_rate_pos(0.0),
+        dead_zone_limit_pos(0.0),
         p_signal_x(0.0),
         i_signal_x(0.0),
         d_signal_x(0.0),
@@ -132,12 +132,12 @@ namespace motion_specification_action
     ss << package_share_directory 
       << "/log_files/pid_controller_"
       << getTimestamp()
-      << "_P" << STIFFNESS_GAIN_X
-      << "_I" << INTEGRAL_GAIN_X
-      << "_D" << DAMPING_GAIN_X
+      << "_P" << STIFFNESS_GAIN_X_POS
+      << "_I" << INTEGRAL_GAIN_X_POS
+      << "_D" << DAMPING_GAIN_X_POS
       << ".csv";
     log_file_name = ss.str();
-    if (log_bool)
+    if (log_pid_pos)
     {
       data_stream_log.open(log_file_name);
       if (!data_stream_log.is_open()) {
@@ -1101,12 +1101,12 @@ namespace motion_specification_action
   }
 
   void MotionSpecificationActionServer::get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
-      const double &stiffness_lin_x_axis_data,
-      const double &stiffness_lin_y_axis_data,
-      const double &stiffness_lin_z_axis_data,
       const double &stiffness_lin_vel_x_axis_data,
       const double &stiffness_lin_vel_y_axis_data,
       const double &stiffness_lin_vel_z_axis_data,
+      const double &stiffness_lin_x_axis_data,
+      const double &stiffness_lin_y_axis_data,
+      const double &stiffness_lin_z_axis_data,
       const double &integral_lin_x_axis_data,
       const double &integral_lin_y_axis_data,
       const double &integral_lin_z_axis_data,
@@ -1120,12 +1120,12 @@ namespace motion_specification_action
       double &previous_d_signal_y,
       double &previous_d_signal_z,
       double &lp_filter_alpha,
-      const bool &log_bool,
+      const bool &log_pid_pos,
       const double &control_dt,
       double &error_sum_lin_x_axis_data,
       double &error_sum_lin_y_axis_data,
       double &error_sum_lin_z_axis_data,
-      const double &integral_clamping_limit,
+      const double &integral_clamping_limit_pos,
       const double &stiffness_roll_axis_data,
       const double &stiffness_pitch_axis_data,
       const double &stiffness_yaw_axis_data,
@@ -1144,8 +1144,8 @@ namespace motion_specification_action
       const double &force_to_apply_x_axis,
       const double &force_to_apply_y_axis,
       const double &force_to_apply_z_axis,
-      const double &dead_zone_limit,
-      const double &integral_decay_rate,
+      const double &dead_zone_limit_pos,
+      const double &integral_decay_rate_pos,
       double &p_signal_x,
       double &i_signal_x,
       double &d_signal_x,
@@ -1203,9 +1203,9 @@ namespace motion_specification_action
                     lp_filter_alpha,
                     control_dt,
                     error_sum_lin_x_axis_data,
-                    dead_zone_limit,
-                    integral_decay_rate,
-                    integral_clamping_limit,
+                    dead_zone_limit_pos,
+                    integral_decay_rate_pos,
+                    integral_clamping_limit_pos,
                     measured_lin_pos_x_axis_data,
                     p_signal_x,
                     i_signal_x,
@@ -1224,9 +1224,9 @@ namespace motion_specification_action
                     lp_filter_alpha,
                     control_dt,
                     error_sum_lin_y_axis_data,
-                    dead_zone_limit,
-                    integral_decay_rate,
-                    integral_clamping_limit,
+                    dead_zone_limit_pos,
+                    integral_decay_rate_pos,
+                    integral_clamping_limit_pos,
                     measured_lin_pos_y_axis_data,
                     p_signal_y,
                     i_signal_y,
@@ -1245,9 +1245,9 @@ namespace motion_specification_action
                     lp_filter_alpha,
                     control_dt,
                     error_sum_lin_z_axis_data,
-                    dead_zone_limit,
-                    integral_decay_rate,
-                    integral_clamping_limit,
+                    dead_zone_limit_pos,
+                    integral_decay_rate_pos,
+                    integral_clamping_limit_pos,
                     measured_lin_pos_z_axis_data,
                     p_signal_z,
                     i_signal_z,
@@ -1326,7 +1326,7 @@ namespace motion_specification_action
       auto e_pos_x = lin_pos_sp_x_axis_data - measured_lin_pos_x_axis_data;
       auto e_pos_y = lin_pos_sp_y_axis_data - measured_lin_pos_y_axis_data;
       auto e_pos_z = lin_pos_sp_z_axis_data - measured_lin_pos_z_axis_data;
-      if (log_bool)
+      if (log_pid_pos)
       {
         data_array_log.push_back({e_pos_x,e_pos_y,e_pos_z,lin_pos_sp_x_axis_data,lin_pos_sp_y_axis_data,lin_pos_sp_z_axis_data,measured_lin_pos_x_axis_data,measured_lin_pos_y_axis_data,measured_lin_pos_z_axis_data,stiffness_lin_x_axis_data,stiffness_lin_y_axis_data,stiffness_lin_z_axis_data,integral_lin_x_axis_data,integral_lin_y_axis_data,integral_lin_z_axis_data,error_sum_lin_x_axis_data,error_sum_lin_y_axis_data,error_sum_lin_z_axis_data,damping_gain_x_axis_data,damping_gain_y_axis_data,damping_gain_z_axis_data,p_signal_x,p_signal_y,p_signal_z,i_signal_x,i_signal_y,i_signal_z,d_signal_x,d_signal_y,d_signal_z,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data});
       }
@@ -1451,24 +1451,24 @@ namespace motion_specification_action
         return;
       };
 
-      STIFFNESS_GAIN_X = config_file_object[arm_name]["STIFFNESS_GAIN_X"].as<double>();
-      STIFFNESS_GAIN_Y = config_file_object[arm_name]["STIFFNESS_GAIN_Y"].as<double>();
-      STIFFNESS_GAIN_Z = config_file_object[arm_name]["STIFFNESS_GAIN_Z"].as<double>();
+      STIFFNESS_GAIN_X_POS = config_file_object[arm_name]["STIFFNESS_GAIN_X_POS"].as<double>();
+      STIFFNESS_GAIN_Y_POS = config_file_object[arm_name]["STIFFNESS_GAIN_Y_POS"].as<double>();
+      STIFFNESS_GAIN_Z_POS = config_file_object[arm_name]["STIFFNESS_GAIN_Z_POS"].as<double>();
 
       STIFFNESS_GAIN_X_VELOCITY = config_file_object[arm_name]["STIFFNESS_GAIN_X_VELOCITY"].as<double>();
       STIFFNESS_GAIN_Y_VELOCITY = config_file_object[arm_name]["STIFFNESS_GAIN_Y_VELOCITY"].as<double>();
       STIFFNESS_GAIN_Z_VELOCITY = config_file_object[arm_name]["STIFFNESS_GAIN_Z_VELOCITY"].as<double>();
 
-      INTEGRAL_GAIN_X = config_file_object[arm_name]["INTEGRAL_GAIN_X"].as<double>();
-      INTEGRAL_GAIN_Y = config_file_object[arm_name]["INTEGRAL_GAIN_Y"].as<double>();
-      INTEGRAL_GAIN_Z = config_file_object[arm_name]["INTEGRAL_GAIN_Z"].as<double>();
-      DAMPING_GAIN_X = config_file_object[arm_name]["DAMPING_GAIN_X"].as<double>();
-      DAMPING_GAIN_Y = config_file_object[arm_name]["DAMPING_GAIN_Y"].as<double>();
-      DAMPING_GAIN_Z = config_file_object[arm_name]["DAMPING_GAIN_Z"].as<double>();
-      INTEGRAL_CLAMPING_LIMIT = config_file_object[arm_name]["INTEGRAL_CLAMPING_LIMIT"].as<double>();
+      INTEGRAL_GAIN_X_POS = config_file_object[arm_name]["INTEGRAL_GAIN_X_POS"].as<double>();
+      INTEGRAL_GAIN_Y_POS = config_file_object[arm_name]["INTEGRAL_GAIN_Y_POS"].as<double>();
+      INTEGRAL_GAIN_Z_POS = config_file_object[arm_name]["INTEGRAL_GAIN_Z_POS"].as<double>();
+      DAMPING_GAIN_X_POS = config_file_object[arm_name]["DAMPING_GAIN_X_POS"].as<double>();
+      DAMPING_GAIN_Y_POS = config_file_object[arm_name]["DAMPING_GAIN_Y_POS"].as<double>();
+      DAMPING_GAIN_Z_POS = config_file_object[arm_name]["DAMPING_GAIN_Z_POS"].as<double>();
+      INTEGRAL_CLAMPING_LIMIT_POS = config_file_object[arm_name]["INTEGRAL_CLAMPING_LIMIT_POS"].as<double>();
 
       DEADZONE_POS_CTRL = config_file_object[arm_name]["DEADZONE_POS_CTRL"].as<double>();
-      INTEGRAL_DECAY_RATE = config_file_object[arm_name]["INTEGRAL_DECAY_RATE"].as<double>();
+      INTEGRAL_DECAY_RATE_POS = config_file_object[arm_name]["INTEGRAL_DECAY_RATE_POS"].as<double>();
 
       STIFFNESS_GAIN_ROLL = config_file_object[arm_name]["STIFFNESS_GAIN_ROLL"].as<double>();
       STIFFNESS_GAIN_PITCH = config_file_object[arm_name]["STIFFNESS_GAIN_PITCH"].as<double>();
@@ -1496,29 +1496,29 @@ namespace motion_specification_action
       SAVE_LOG_EVERY_NTH_STEP = config_file_object[arm_name]["SAVE_LOG_EVERY_NTH_STEP"].as<int>();
       control_dt = DESIRED_TIME_STEP;
       LOW_PASS_FILTER_ALPHA = config_file_object[arm_name]["LOW_PASS_FILTER_ALPHA"].as<double>();
-      LOG_BOOL = config_file_object[arm_name]["LOG_BOOL"].as<bool>();
+      LOG_PID_POS = config_file_object[arm_name]["LOG_PID_POS"].as<bool>();
 
-      log_bool = LOG_BOOL;
+      log_pid_pos = LOG_PID_POS;
       lp_filter_alpha = LOW_PASS_FILTER_ALPHA;
 
-      stiffness_lin_x_axis_data = STIFFNESS_GAIN_X;
-      stiffness_lin_y_axis_data = STIFFNESS_GAIN_Y;
-      stiffness_lin_z_axis_data = STIFFNESS_GAIN_Z;
+      stiffness_lin_x_axis_data = STIFFNESS_GAIN_X_POS;
+      stiffness_lin_y_axis_data = STIFFNESS_GAIN_Y_POS;
+      stiffness_lin_z_axis_data = STIFFNESS_GAIN_Z_POS;
 
       stiffness_lin_vel_x_axis_data = STIFFNESS_GAIN_X_VELOCITY;
       stiffness_lin_vel_y_axis_data = STIFFNESS_GAIN_Y_VELOCITY;
       stiffness_lin_vel_z_axis_data = STIFFNESS_GAIN_Z_VELOCITY;
 
-      integral_lin_x_axis_data = INTEGRAL_GAIN_X;
-      integral_lin_y_axis_data = INTEGRAL_GAIN_Y;
-      integral_lin_z_axis_data = INTEGRAL_GAIN_Z;
+      integral_lin_x_axis_data = INTEGRAL_GAIN_X_POS;
+      integral_lin_y_axis_data = INTEGRAL_GAIN_Y_POS;
+      integral_lin_z_axis_data = INTEGRAL_GAIN_Z_POS;
 
-      damping_gain_x_axis_data = DAMPING_GAIN_X;
-      damping_gain_y_axis_data = DAMPING_GAIN_Y;
-      damping_gain_z_axis_data = DAMPING_GAIN_Z;
+      damping_gain_x_axis_data = DAMPING_GAIN_X_POS;
+      damping_gain_y_axis_data = DAMPING_GAIN_Y_POS;
+      damping_gain_z_axis_data = DAMPING_GAIN_Z_POS;
 
-      dead_zone_limit = DEADZONE_POS_CTRL;
-      integral_decay_rate = INTEGRAL_DECAY_RATE;
+      dead_zone_limit_pos = DEADZONE_POS_CTRL;
+      integral_decay_rate_pos = INTEGRAL_DECAY_RATE_POS;
 
       stiffness_forearm_y_axis_angle = STIFFNESS_FOREARM_JNT_LIMIT;
       forearm_link_y_axis_angle_sp = FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG * M_PI / 180;
@@ -1528,7 +1528,7 @@ namespace motion_specification_action
       error_sum_lin_x_axis_data = 0.0;
       error_sum_lin_y_axis_data = 0.0;
       error_sum_lin_z_axis_data = 0.0;
-      integral_clamping_limit = INTEGRAL_CLAMPING_LIMIT;
+      integral_clamping_limit_pos = INTEGRAL_CLAMPING_LIMIT_POS;
 
       stiffness_roll_axis_data = STIFFNESS_GAIN_ROLL;
       stiffness_pitch_axis_data = STIFFNESS_GAIN_PITCH;
@@ -1661,7 +1661,7 @@ namespace motion_specification_action
             // Normalize angular difference for continuous revolute joints (0,2,4,6)
             if (i % 2 == 0)
             {
-                jnt_angle_diff = normalize_angle_diff(jnt_angle_diff);
+              jnt_angle_diff = normalize_angle_diff(jnt_angle_diff);
             }
 
             if (std::abs(jnt_angle_diff) < pre_configuration_joint_angles_tolerance_radians)
@@ -1772,12 +1772,12 @@ namespace motion_specification_action
                 arm_name);
 
             get_force_and_torque_from_controller_described_in_FrameName_to_apply_at_EE(
-                stiffness_lin_x_axis_data,
-                stiffness_lin_y_axis_data,
-                stiffness_lin_z_axis_data,
                 stiffness_lin_vel_x_axis_data,
                 stiffness_lin_vel_y_axis_data,
                 stiffness_lin_vel_z_axis_data,
+                stiffness_lin_x_axis_data,
+                stiffness_lin_y_axis_data,
+                stiffness_lin_z_axis_data,
                 integral_lin_x_axis_data,
                 integral_lin_y_axis_data,
                 integral_lin_z_axis_data,
@@ -1791,12 +1791,12 @@ namespace motion_specification_action
                 previous_d_signal_y,
                 previous_d_signal_z,
                 lp_filter_alpha,
-                log_bool,
+                log_pid_pos,
                 control_dt,
                 error_sum_lin_z_axis_data,
                 error_sum_lin_y_axis_data,
                 error_sum_lin_x_axis_data,
-                integral_clamping_limit,
+                integral_clamping_limit_pos,
                 stiffness_roll_axis_data,
                 stiffness_pitch_axis_data,
                 stiffness_yaw_axis_data,
@@ -1815,8 +1815,8 @@ namespace motion_specification_action
                 force_to_apply_x_axis,
                 force_to_apply_y_axis,
                 force_to_apply_z_axis,
-                dead_zone_limit,
-                integral_decay_rate,
+                dead_zone_limit_pos,
+                integral_decay_rate_pos,
                 p_signal_x,
                 i_signal_x,
                 d_signal_x,
@@ -1999,13 +1999,13 @@ namespace motion_specification_action
       loop_rate.sleep(); // Maintain the loop at 1kHz
       iteration_count++;
 
-      if (log_bool && iteration_count % SAVE_LOG_EVERY_NTH_STEP == 0)
+      if (log_pid_pos && iteration_count % SAVE_LOG_EVERY_NTH_STEP == 0)
       {
         appendDataToFile_dynamic_size(data_stream_log, data_array_log);
         data_array_log.clear();
       }
     }
-    if (log_bool)
+    if (log_pid_pos)
     {
       close_log_files(data_array_log, data_stream_log);
     }
