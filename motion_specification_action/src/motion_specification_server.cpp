@@ -88,6 +88,9 @@ namespace motion_specification_action
         measured_vel_x_axis_data(0.0),
         measured_vel_y_axis_data(0.0),
         measured_vel_z_axis_data(0.0),
+        filtered_measured_vel_x_axis_data(0.0),
+        filtered_measured_vel_y_axis_data(0.0),
+        filtered_measured_vel_z_axis_data(0.0),
         vel_sp_x_axis_data(0.0),
         vel_sp_y_axis_data(0.0),
         vel_sp_z_axis_data(0.0),
@@ -145,6 +148,7 @@ namespace motion_specification_action
         pre_configuration_joint_angle_5_rad(0.0),
         pre_configuration_joint_angle_6_rad(0.0),
         state_publish_time_step(0.1),
+        lp_filter_alpha_measured_vel(0.0),
         rne_output_jnt_torques_vector_to_set_control_mode(kinova_constants::NUMBER_OF_JOINTS, 0.0),
         arm_name("kinova_gen3_2_right"),
         arm_base_link_name("base_link"),
@@ -1224,6 +1228,10 @@ namespace motion_specification_action
       const double &measured_vel_x_axis_data,
       const double &measured_vel_y_axis_data,
       const double &measured_vel_z_axis_data,
+      double &filtered_measured_vel_x_axis_data,
+      double &filtered_measured_vel_y_axis_data,
+      double &filtered_measured_vel_z_axis_data,
+      const double &lp_filter_alpha_measured_vel,
       const double &vel_sp_x_axis_data,
       const double &vel_sp_y_axis_data,
       const double &vel_sp_z_axis_data,
@@ -1349,6 +1357,22 @@ namespace motion_specification_action
             break;
 
           case VELOCITY_XYZ:
+            if (filtered_measured_vel_x_axis_data == 0.0)
+            {
+              filtered_measured_vel_x_axis_data = measured_vel_x_axis_data;
+            };
+            if (filtered_measured_vel_y_axis_data == 0.0)
+            {
+              filtered_measured_vel_y_axis_data = measured_vel_y_axis_data;
+            };
+            if (filtered_measured_vel_z_axis_data == 0.0)
+            {
+              filtered_measured_vel_z_axis_data = measured_vel_z_axis_data;
+            };
+            std::cout << "lp_filter_alpha_measured_vel: " << lp_filter_alpha_measured_vel << std::endl;
+            filtered_measured_vel_x_axis_data = lp_filter_alpha_measured_vel*measured_vel_x_axis_data + (1-lp_filter_alpha_measured_vel) * filtered_measured_vel_x_axis_data;
+            filtered_measured_vel_y_axis_data = lp_filter_alpha_measured_vel*measured_vel_y_axis_data + (1-lp_filter_alpha_measured_vel) * filtered_measured_vel_y_axis_data;
+            filtered_measured_vel_z_axis_data = lp_filter_alpha_measured_vel*measured_vel_z_axis_data + (1-lp_filter_alpha_measured_vel) * filtered_measured_vel_z_axis_data;
             for (int k = 0; k < 3; k++)
             {
               std::string constraint_str = constraint_value_list[k].as<std::string>("");
@@ -1368,7 +1392,7 @@ namespace motion_specification_action
                     dead_zone_limit_vel,
                     integral_decay_rate_vel,
                     integral_clamping_limit_vel,
-                    measured_vel_x_axis_data,
+                    filtered_measured_vel_x_axis_data,
                     p_signal_x_vel,
                     i_signal_x_vel,
                     d_signal_x_vel,
@@ -1389,12 +1413,12 @@ namespace motion_specification_action
                     dead_zone_limit_vel,
                     integral_decay_rate_vel,
                     integral_clamping_limit_vel,
-                    measured_vel_y_axis_data,
+                    filtered_measured_vel_y_axis_data,
                     p_signal_y_vel,
                     i_signal_y_vel,
                     d_signal_y_vel,
                     vel_sp_y_axis_data,
-                    apply_ee_force_y_axis_data);                
+                    apply_ee_force_y_axis_data);
                 }
                 else if (k == 2)
                 {
@@ -1410,7 +1434,7 @@ namespace motion_specification_action
                     dead_zone_limit_vel,
                     integral_decay_rate_vel,
                     integral_clamping_limit_vel,
-                    measured_vel_z_axis_data,
+                    filtered_measured_vel_z_axis_data,
                     p_signal_z_vel,
                     i_signal_z_vel,
                     d_signal_z_vel,
@@ -1467,16 +1491,16 @@ namespace motion_specification_action
       auto e_pos_y = pos_sp_y_axis_data - measured_pos_y_axis_data;
       auto e_pos_z = pos_sp_z_axis_data - measured_pos_z_axis_data;
 
-      auto e_vel_x = vel_sp_x_axis_data - measured_vel_x_axis_data;
-      auto e_vel_y = vel_sp_y_axis_data - measured_vel_y_axis_data;
-      auto e_vel_z = vel_sp_z_axis_data - measured_vel_z_axis_data;
+      auto e_vel_x = vel_sp_x_axis_data - filtered_measured_vel_x_axis_data;
+      auto e_vel_y = vel_sp_y_axis_data - filtered_measured_vel_y_axis_data;
+      auto e_vel_z = vel_sp_z_axis_data - filtered_measured_vel_z_axis_data;
       if (log_pid_pos)
       {
         data_array_log_pos.push_back({e_pos_x,e_pos_y,e_pos_z,pos_sp_x_axis_data,pos_sp_y_axis_data,pos_sp_z_axis_data,measured_pos_x_axis_data,measured_pos_y_axis_data,measured_pos_z_axis_data,stiffness_pos_x_axis_data,stiffness_pos_y_axis_data,stiffness_pos_z_axis_data,integral_pos_x_axis_data,integral_pos_y_axis_data,integral_pos_z_axis_data,error_sum_pos_x_axis_data,error_sum_pos_y_axis_data,error_sum_pos_z_axis_data,damping_pos_x_axis_data,damping_pos_y_axis_data,damping_pos_z_axis_data,p_signal_x_pos,p_signal_y_pos,p_signal_z_pos,i_signal_x_pos,i_signal_y_pos,i_signal_z_pos,d_signal_x_pos,d_signal_y_pos,d_signal_z_pos,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data});
       };
       if (log_pid_vel)
       {
-        data_array_log_vel.push_back({e_vel_x,e_vel_y,e_vel_z,vel_sp_x_axis_data,vel_sp_y_axis_data,vel_sp_z_axis_data,measured_vel_x_axis_data,measured_vel_y_axis_data,measured_vel_z_axis_data,stiffness_vel_x_axis_data,stiffness_vel_y_axis_data,stiffness_vel_z_axis_data,integral_vel_x_axis_data,integral_vel_y_axis_data,integral_vel_z_axis_data,error_sum_vel_x_axis_data,error_sum_vel_y_axis_data,error_sum_vel_z_axis_data,damping_vel_x_axis_data,damping_vel_y_axis_data,damping_vel_z_axis_data,p_signal_x_vel,p_signal_y_vel,p_signal_z_vel,i_signal_x_vel,i_signal_y_vel,i_signal_z_vel,d_signal_x_vel,d_signal_y_vel,d_signal_z_vel,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data});
+        data_array_log_vel.push_back({e_vel_x,e_vel_y,e_vel_z,vel_sp_x_axis_data,vel_sp_y_axis_data,vel_sp_z_axis_data,filtered_measured_vel_x_axis_data,filtered_measured_vel_y_axis_data,filtered_measured_vel_z_axis_data,stiffness_vel_x_axis_data,stiffness_vel_y_axis_data,stiffness_vel_z_axis_data,integral_vel_x_axis_data,integral_vel_y_axis_data,integral_vel_z_axis_data,error_sum_vel_x_axis_data,error_sum_vel_y_axis_data,error_sum_vel_z_axis_data,damping_vel_x_axis_data,damping_vel_y_axis_data,damping_vel_z_axis_data,p_signal_x_vel,p_signal_y_vel,p_signal_z_vel,i_signal_x_vel,i_signal_y_vel,i_signal_z_vel,d_signal_x_vel,d_signal_y_vel,d_signal_z_vel,apply_ee_force_x_axis_data,apply_ee_force_y_axis_data,apply_ee_force_z_axis_data});
       };
     }
   }
@@ -1627,6 +1651,7 @@ namespace motion_specification_action
       INTEGRAL_CLAMPING_LIMIT_VEL = config_file_object[arm_name]["INTEGRAL_CLAMPING_LIMIT_VEL"].as<double>();
       DEADZONE_VEL_CTRL = config_file_object[arm_name]["DEADZONE_VEL_CTRL"].as<double>();
       LOW_PASS_FILTER_ALPHA_VEL = config_file_object[arm_name]["LOW_PASS_FILTER_ALPHA_VEL"].as<double>();
+      LOW_PASS_FILTER_ALPHA_MEASURED_VEL = config_file_object[arm_name]["LOW_PASS_FILTER_ALPHA_MEASURED_VEL"].as<double>();
       LOG_PID_VEL = config_file_object[arm_name]["LOG_PID_VEL"].as<bool>();
 
       STIFFNESS_GAIN_ROLL = config_file_object[arm_name]["STIFFNESS_GAIN_ROLL"].as<double>();
@@ -1672,6 +1697,7 @@ namespace motion_specification_action
       integral_clamping_limit_pos = INTEGRAL_CLAMPING_LIMIT_POS;
       dead_zone_limit_pos = DEADZONE_POS_CTRL;
       lp_filter_alpha_pos = LOW_PASS_FILTER_ALPHA_POS;
+      lp_filter_alpha_measured_vel = LOW_PASS_FILTER_ALPHA_MEASURED_VEL;
       log_pid_pos = LOG_PID_POS;
       
       stiffness_vel_x_axis_data = STIFFNESS_GAIN_X_VEL;
@@ -1685,7 +1711,6 @@ namespace motion_specification_action
       integral_vel_x_axis_data = INTEGRAL_GAIN_X_VEL;
       integral_vel_y_axis_data = INTEGRAL_GAIN_Y_VEL;
       integral_vel_z_axis_data = INTEGRAL_GAIN_Z_VEL;
-
       integral_decay_rate_vel = INTEGRAL_DECAY_RATE_VEL;
       integral_clamping_limit_vel = INTEGRAL_CLAMPING_LIMIT_VEL;
       dead_zone_limit_vel = DEADZONE_VEL_CTRL;
@@ -1774,6 +1799,10 @@ namespace motion_specification_action
       measured_vel_z_axis_data = measured_endEffTwist_desired_frame.GetTwist().vel.z();
       measured_endEffPose_desired_frame.M.GetQuaternion(measured_quat_desired_frame[0], measured_quat_desired_frame[1], measured_quat_desired_frame[2], measured_quat_desired_frame[3]);
       measured_endEffPose_desired_frame.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
+
+      // filtered_measured_vel_x_axis_data = vel_filter_x.filter(measured_vel_x_axis_data);
+      // filtered_measured_vel_y_axis_data = vel_filter_y.filter(measured_vel_y_axis_data);
+      // filtered_measured_vel_z_axis_data = vel_filter_z.filter(measured_vel_z_axis_data);
 
       auto current_time = std::chrono::high_resolution_clock::now();
       auto time_since_last_publish = std::chrono::duration<double>(current_time-previous_state_publish_time);
@@ -2009,6 +2038,10 @@ namespace motion_specification_action
                 measured_vel_x_axis_data,
                 measured_vel_y_axis_data,
                 measured_vel_z_axis_data,
+                filtered_measured_vel_x_axis_data,
+                filtered_measured_vel_y_axis_data,
+                filtered_measured_vel_z_axis_data,
+                lp_filter_alpha_measured_vel,
                 vel_sp_x_axis_data,
                 vel_sp_y_axis_data,
                 vel_sp_z_axis_data,

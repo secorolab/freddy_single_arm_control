@@ -19,6 +19,7 @@
 #include <tf2_ros/buffer.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_kdl/tf2_kdl.hpp>
+// #include "moving_average.hpp"
 
 #include <Eigen/Core>
 #include <chrono>
@@ -158,6 +159,7 @@ namespace motion_specification_action
     int SAVE_LOG_EVERY_NTH_STEP;
     double LOW_PASS_FILTER_ALPHA_POS;
     double LOW_PASS_FILTER_ALPHA_VEL;
+    double LOW_PASS_FILTER_ALPHA_MEASURED_VEL;
     double LOG_PID_POS;
     double LOG_PID_VEL;
 
@@ -362,6 +364,15 @@ namespace motion_specification_action
     double measured_vel_x_axis_data;
     double measured_vel_y_axis_data;
     double measured_vel_z_axis_data;
+
+    const int window_size = 21;
+    double filtered_measured_vel_x_axis_data;
+    double filtered_measured_vel_y_axis_data;
+    double filtered_measured_vel_z_axis_data;
+    double lp_filter_alpha_measured_vel;
+    // MovingAverage vel_filter_x{window_size};
+    // MovingAverage vel_filter_y{window_size};
+    // MovingAverage vel_filter_z{window_size};
 
     double pos_sp_x_axis_data;
     double pos_sp_y_axis_data;
@@ -666,6 +677,10 @@ namespace motion_specification_action
         const double &measured_vel_x_axis_data,
         const double &measured_vel_y_axis_data,
         const double &measured_vel_z_axis_data,
+        double &filtered_measured_vel_x_axis_data,
+        double &filtered_measured_vel_y_axis_data,
+        double &filtered_measured_vel_z_axis_data,
+        const double &lp_filter_alpha_measured_vel,
         const double &vel_sp_x_axis_data,
         const double &vel_sp_y_axis_data,
         const double &vel_sp_z_axis_data,
