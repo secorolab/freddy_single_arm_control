@@ -2,6 +2,7 @@ arm_name: KINOVA_GEN3_2_RIGHT
 
 KINOVA_GEN3_2_RIGHT:
 
+  action_name: "ms_action_name"
   reach_pre_configuration_joint_angles: false
   pre_configuration_max_deviation_deg: 0.6
   pre_configuration_joint_angles_tolerance_deg: 0.1

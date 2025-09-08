@@ -198,6 +198,7 @@ namespace motion_specification_action
     std::string arm_name;
 
     std::string frame_name;
+    std::string action_name;
     std::string arm_base_link_name;
     std::string robot_base_link_name;
     int pre_condition_constraint_count;
@@ -470,7 +471,7 @@ namespace motion_specification_action
       int &pre_condition_constraint_count,
       int &per_condition_constraint_count,
       int &post_condition_constraint_count);
-    void read_frame_name(const YAML::Node &motion_specification_params_object);
+    void read_frame_and_action_names(const YAML::Node &motion_specification_params_object);
     void publish_static_transform_from_GF_to_BL(
       const std::string &robot_base_link_name, 
       const std::string &arm_base_link_name, 

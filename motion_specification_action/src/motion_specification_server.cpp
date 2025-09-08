@@ -151,6 +151,7 @@ namespace motion_specification_action
         lp_filter_alpha_measured_vel(0.0),
         rne_output_jnt_torques_vector_to_set_control_mode(kinova_constants::NUMBER_OF_JOINTS, 0.0),
         arm_name("kinova_gen3_2_right"),
+        action_name("unknown"),
         arm_base_link_name("base_link"),
         robot_base_link_name("eddie_base_link"),
         transform_available(false),
@@ -1517,9 +1518,17 @@ namespace motion_specification_action
     post_condition_constraint_count = motion_specification_params_object[arm_name]["POST_CONDITION"]["constraint_count"].as<int>();
   }
 
-  void MotionSpecificationActionServer::read_frame_name(const YAML::Node &motion_specification_params_object)
+  void MotionSpecificationActionServer::read_frame_and_action_names(const YAML::Node &motion_specification_params_object)
   {
-    frame_name = motion_specification_params_object[arm_name]["frame_name"].as<std::string>();
+    try{
+      frame_name = motion_specification_params_object[arm_name]["frame_name"].as<std::string>();
+      action_name = motion_specification_params_object[arm_name]["action_name"].as<std::string>();
+    }
+    catch (const YAML::Exception &e)
+    {
+      RCLCPP_ERROR(this->get_logger(), "Error reading frame or action name: %s", e.what());
+      return;
+    }
   }
 
   void MotionSpecificationActionServer::parse_urdf_file(const std::string &urdf_file_path, KDL::Tree &kinematic_tree, KDL::Chain &chain_urdf, unsigned int &NUM_LINKS)
@@ -2335,6 +2344,7 @@ namespace motion_specification_action
     {
       RCLCPP_ERROR(this->get_logger(), "YAML parsing error: %s", e.what());
       result->motion_successful = false;
+      result->ms_action_name = action_name;
       goal_handle->abort(result);
       return;
     }
@@ -2345,7 +2355,7 @@ namespace motion_specification_action
                                pre_condition_constraint_count,
                                per_condition_constraint_count,
                                post_condition_constraint_count);
-      read_frame_name(motion_specification_params_object);
+      read_frame_and_action_names(motion_specification_params_object);
       get_pre_configuration_joint_angles(
           arm_name,
           motion_specification_params_object,
@@ -2359,6 +2369,7 @@ namespace motion_specification_action
     {
       RCLCPP_ERROR(this->get_logger(), "Error reading motion specification parameters: %s", e.what());
       result->motion_successful = false;
+      result->ms_action_name = action_name;
       goal_handle->abort(result);
       return;
     } // if there is an error while reading the motion specification, abort the goal
@@ -2399,6 +2410,7 @@ namespace motion_specification_action
       if (goal_handle->is_canceling())
       {
         result->motion_successful = false;
+        result->ms_action_name = action_name;
         goal_handle->canceled(result);
         RCLCPP_INFO(this->get_logger(), "Goal canceled");
         goal_accepted_and_executing = false;
@@ -2410,6 +2422,7 @@ namespace motion_specification_action
         goal_handle_result_published = true;
         goal_accepted_and_executing = false;
         result->motion_successful = true;
+        result->ms_action_name = action_name;
         result->post_condition_indices = post_condition_indices;
         post_condition_indices.clear();
         goal_handle->succeed(result);
@@ -2421,6 +2434,7 @@ namespace motion_specification_action
         goal_handle_result_published = true;
         goal_accepted_and_executing = false;
         result->motion_successful = true;
+        result->ms_action_name = action_name;
         post_condition_indices.clear();
         goal_handle->succeed(result);
         RCLCPP_INFO(this->get_logger(), "Pre-configuration joint angles reached. Now waiting for any motion specification.");
@@ -2429,6 +2443,7 @@ namespace motion_specification_action
       if (abort_motion_execution)
       {
         result->motion_successful = false;
+        result->ms_action_name = action_name;
         post_condition_indices.clear();
         goal_handle->abort(result);
         RCLCPP_INFO(this->get_logger(), "Goal aborted due to abort signal.");
@@ -2438,6 +2453,7 @@ namespace motion_specification_action
       if (flag == 1)
       {
         result->motion_successful = false;
+        result->ms_action_name = action_name;
         post_condition_indices.clear();
         goal_handle->abort(result);
         RCLCPP_INFO(this->get_logger(), "Key interruption detected. Stopping server.");
@@ -2451,6 +2467,7 @@ namespace motion_specification_action
     if (!rclcpp::ok())
     {
       result->motion_successful = false;
+      result->ms_action_name = action_name;
       post_condition_indices.clear();
       goal_handle->canceled(result);
       RCLCPP_INFO(this->get_logger(), "Goal canceled as ros node is terminated");
