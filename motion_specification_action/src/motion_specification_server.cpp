@@ -1878,35 +1878,17 @@ namespace motion_specification_action
             {
               ++jnt_angle_within_tolerance_cnt;
             }
-            auto stiffness_term = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG * jnt_angle_diff;
-            auto damping_term = 0.0;
-            if (i < 4)
-            {
-              joint_torque_threshold = JOINT_TORQUE_THRESHOLD_UNTIL_JNT_4;
-            }
-            else
-            {
-              joint_torque_threshold = JOINT_TORQUE_THRESHOLD_FROM_JNT_5_TO_7;
-            }
-            if (std::abs(stiffness_term) > joint_torque_threshold)
-            {
-              if (stiffness_term > 0)
-              {
-                stiffness_term = joint_torque_threshold;
-              }
-              else
-              {
-                stiffness_term = -joint_torque_threshold;
-              }
-            }
-            if (jnt_velocities(i) > 0.0)
-            {
-              damping_term = - DAMPING_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG / (1 + std::exp(-SIGMOID_SLOPE_K_IMPEDANCE_CTRL_PRE_JNT_CONFIG * (std::abs(jnt_velocities(i)) - PRE_JNT_CONFIG_IMPEDANCE_CTRL_VEL_THRESHOLD)));
-            }
-            else
-            {
-              damping_term = DAMPING_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG / (1 + std::exp(-SIGMOID_SLOPE_K_IMPEDANCE_CTRL_PRE_JNT_CONFIG * (std::abs(jnt_velocities(i)) - PRE_JNT_CONFIG_IMPEDANCE_CTRL_VEL_THRESHOLD)));
-            }
+
+            double stiffness_term = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG * jnt_angle_diff;
+            joint_torque_threshold = (i < 4)
+                ? JOINT_TORQUE_THRESHOLD_UNTIL_JNT_4
+                : JOINT_TORQUE_THRESHOLD_FROM_JNT_5_TO_7;
+            stiffness_term = std::clamp(stiffness_term, -joint_torque_threshold, joint_torque_threshold);
+
+            const double abs_jnt_vel = std::abs(jnt_velocities(i));
+            const double sigmoid_input = abs_jnt_vel - PRE_JNT_CONFIG_IMPEDANCE_CTRL_VEL_THRESHOLD;
+            const double sigmoid = 1.0 / (1.0 + std::exp(-SIGMOID_SLOPE_K_IMPEDANCE_CTRL_PRE_JNT_CONFIG * sigmoid_input));
+            double damping_term = (jnt_velocities(i) > 0.0 ? -1.0 : 1.0) * DAMPING_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG * sigmoid;
 
             jnt_torques_cmd(i) = torques_gravity_compensation(i) + stiffness_term + damping_term;
           }
