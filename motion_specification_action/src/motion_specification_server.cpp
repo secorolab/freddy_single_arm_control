@@ -1370,7 +1370,6 @@ namespace motion_specification_action
             {
               filtered_measured_vel_z_axis_data = measured_vel_z_axis_data;
             };
-            std::cout << "lp_filter_alpha_measured_vel: " << lp_filter_alpha_measured_vel << std::endl;
             filtered_measured_vel_x_axis_data = lp_filter_alpha_measured_vel*measured_vel_x_axis_data + (1-lp_filter_alpha_measured_vel) * filtered_measured_vel_x_axis_data;
             filtered_measured_vel_y_axis_data = lp_filter_alpha_measured_vel*measured_vel_y_axis_data + (1-lp_filter_alpha_measured_vel) * filtered_measured_vel_y_axis_data;
             filtered_measured_vel_z_axis_data = lp_filter_alpha_measured_vel*measured_vel_z_axis_data + (1-lp_filter_alpha_measured_vel) * filtered_measured_vel_z_axis_data;
@@ -1668,7 +1667,9 @@ namespace motion_specification_action
       STIFFNESS_GAIN_YAW = config_file_object[arm_name]["STIFFNESS_GAIN_YAW"].as<double>();
       STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL = config_file_object[arm_name]["STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL"].as<double>();
       STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG = config_file_object[arm_name]["STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG"].as<double>();
-
+      DAMPING_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG = config_file_object[arm_name]["DAMPING_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG"].as<double>();
+      SIGMOID_SLOPE_K_IMPEDANCE_CTRL_PRE_JNT_CONFIG = config_file_object[arm_name]["SIGMOID_SLOPE_K_IMPEDANCE_CTRL_PRE_JNT_CONFIG"].as<double>();
+      PRE_JNT_CONFIG_IMPEDANCE_CTRL_VEL_THRESHOLD= config_file_object[arm_name]["PRE_JNT_CONFIG_IMPEDANCE_CTRL_VEL_THRESHOLD"].as<double>();
       DEADBAND_FOREARM_IN_DEG = config_file_object[arm_name]["DEADBAND_FOREARM_IN_DEG"].as<double>();
       FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG = config_file_object[arm_name]["FOREARM_Y_AXIS_DESIRED_ANGLE_TO_BL_X_AXIS_IN_DEG"].as<double>();
       STIFFNESS_FOREARM_JNT_LIMIT = config_file_object[arm_name]["STIFFNESS_FOREARM_JNT_LIMIT"].as<double>();
@@ -1735,7 +1736,6 @@ namespace motion_specification_action
       stiffness_pitch_axis_data = STIFFNESS_GAIN_PITCH;
       stiffness_yaw_axis_data = STIFFNESS_GAIN_YAW;
       stiffness_joint_impedance_ctrl = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL;
-      stiffness_joint_impedance_ctrl_pre_jnt_config = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG;
 
       BL_x_axis_wrt_GF_vector = config_file_object[arm_name]["BL_x_axis_wrt_GF"].as<std::vector<double>>();
       BL_y_axis_wrt_GF_vector = config_file_object[arm_name]["BL_y_axis_wrt_GF"].as<std::vector<double>>();
@@ -1878,7 +1878,37 @@ namespace motion_specification_action
             {
               ++jnt_angle_within_tolerance_cnt;
             }
-            jnt_torques_cmd(i) = stiffness_joint_impedance_ctrl_pre_jnt_config * jnt_angle_diff + torques_gravity_compensation(i);
+            auto stiffness_term = STIFFNESS_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG * jnt_angle_diff;
+            auto damping_term = 0.0;
+            if (i < 4)
+            {
+              joint_torque_threshold = JOINT_TORQUE_THRESHOLD_UNTIL_JNT_4;
+            }
+            else
+            {
+              joint_torque_threshold = JOINT_TORQUE_THRESHOLD_FROM_JNT_5_TO_7;
+            }
+            if (std::abs(stiffness_term) > joint_torque_threshold)
+            {
+              if (stiffness_term > 0)
+              {
+                stiffness_term = joint_torque_threshold;
+              }
+              else
+              {
+                stiffness_term = -joint_torque_threshold;
+              }
+            }
+            if (jnt_velocities(i) > 0.0)
+            {
+              damping_term = - DAMPING_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG / (1 + std::exp(-SIGMOID_SLOPE_K_IMPEDANCE_CTRL_PRE_JNT_CONFIG * (std::abs(jnt_velocities(i)) - PRE_JNT_CONFIG_IMPEDANCE_CTRL_VEL_THRESHOLD)));
+            }
+            else
+            {
+              damping_term = DAMPING_GAIN_JOINT_IMPEDANCE_CTRL_PRE_JNT_CONFIG / (1 + std::exp(-SIGMOID_SLOPE_K_IMPEDANCE_CTRL_PRE_JNT_CONFIG * (std::abs(jnt_velocities(i)) - PRE_JNT_CONFIG_IMPEDANCE_CTRL_VEL_THRESHOLD)));
+            }
+
+            jnt_torques_cmd(i) = torques_gravity_compensation(i) + stiffness_term + damping_term;
           }
           if (jnt_angle_within_tolerance_cnt == kinova_constants::NUMBER_OF_JOINTS)
           {
@@ -2423,7 +2453,7 @@ namespace motion_specification_action
         goal_accepted_and_executing = false;
         result->motion_successful = true;
         result->ms_action_name = action_name;
-        result->post_condition_indices = post_condition_indices;
+        result->disjunction_indices = post_condition_indices;
         post_condition_indices.clear();
         goal_handle->succeed(result);
         RCLCPP_INFO(this->get_logger(), "Goal succeeded");

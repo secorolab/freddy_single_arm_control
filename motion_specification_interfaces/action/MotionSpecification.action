@@ -3,7 +3,7 @@ string motion_specification
 ---
 bool motion_successful
 string ms_action_name
-int32[] post_condition_indices
+int32[] disjunction_indices
 
 ---
 float32[] tcp_position
