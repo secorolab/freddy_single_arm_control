@@ -105,6 +105,7 @@ namespace motion_specification_action
         d_signal_z_vel(0.0),
         log_pid_vel(false),
         desired_quat_desired_frame{0.0, 0.0, 0.0, 1.0},
+        desired_ee_yaw_wrt_desired_frame(0.0),
         measured_quat_desired_frame{0.0, 0.0, 0.0, 1.0},
         stiffness_roll_axis_data(0.0),
         stiffness_pitch_axis_data(0.0),
@@ -128,6 +129,8 @@ namespace motion_specification_action
         measured_roll_data(0.0),
         measured_pitch_data(0.0),
         measured_yaw_data(0.0),
+        is_yaw_control(false),
+        jnt_6_torque(0.0),
         configuration_file_read(false),
         pre_condition_satisfied(false),
         post_condition_satisfied(false),
@@ -864,16 +867,25 @@ namespace motion_specification_action
             break;
 
           case ORIENTATION_ROLL:
-            check_1D_vector_constraint_satisfaction(measured_roll_data, constraint_satisfied, i, motion_specification_params_object, arm_name, condition_type_value);
+          {
+            double measured_roll_data_deg = measured_roll_data * 180.0 / M_PI;
+            check_1D_vector_constraint_satisfaction(measured_roll_data_deg, constraint_satisfied, i, motion_specification_params_object, arm_name, condition_type_value);
             break;
+          }
 
           case ORIENTATION_PITCH:
-            check_1D_vector_constraint_satisfaction(measured_pitch_data, constraint_satisfied, i, motion_specification_params_object, arm_name, condition_type_value);
+          {
+            double measured_pitch_data_deg = measured_pitch_data * 180.0 / M_PI;
+            check_1D_vector_constraint_satisfaction(measured_pitch_data_deg, constraint_satisfied, i, motion_specification_params_object, arm_name, condition_type_value);
             break;
+          }
 
           case ORIENTATION_YAW:
-            check_1D_vector_constraint_satisfaction(measured_yaw_data, constraint_satisfied, i, motion_specification_params_object, arm_name, condition_type_value);
+          {
+            double measured_yaw_data_deg = measured_yaw_data * 180.0 / M_PI;
+            check_1D_vector_constraint_satisfaction(measured_yaw_data_deg, constraint_satisfied, i, motion_specification_params_object, arm_name, condition_type_value);
             break;
+          }
 
           case TIME_LIMIT: // in seconds
             if (condition_type_value == condition_type::PRE_CONDITION)
@@ -995,6 +1007,7 @@ namespace motion_specification_action
     double &force_to_apply_z_axis,
     const int &per_condition_constraint_count,
     std::array<double, 4> &desired_quat_desired_frame,
+    double &desired_ee_yaw_wrt_desired_frame,
     const YAML::Node &motion_specification_params_object,
     const std::string &arm_name)
 {
@@ -1089,6 +1102,10 @@ namespace motion_specification_action
               desired_quat_desired_frame[k] = constraint_value_list[k].as<double>();
             }
           }
+          break;
+
+        case ORIENTATION_YAW:
+          desired_ee_yaw_wrt_desired_frame = constraint_value_list.as<double>() * M_PI / 180.0;
           break;
 
         default:
@@ -1265,7 +1282,9 @@ namespace motion_specification_action
       KDL::Vector &angle_axis_diff_desired_frame,
       const double &control_dt,
       const YAML::Node &motion_specification_params_object,
-      const std::string &arm_name)
+      const std::string &arm_name,
+      bool &is_yaw_control,
+      double &jnt_6_torque)
   {
     auto constraint_type_map = getConstraintTypeMap();
     std::string condition_type_str = "PER_CONDITION";
@@ -1476,8 +1495,36 @@ namespace motion_specification_action
 
             break;
 
-          default:
+          // Note: this is a temporary implementation of yaw control and it is only intended to use for the case when the axis under control is nearly aligned with the corresponding axis in the reference frame
+          case ORIENTATION_YAW:
+          {
+            double roll, pitch, yaw;
+            // TODO: remove hardcoded values and read from yaml
+            double minimal_torque_ee_jnt = 4.0;
+            double stiffness_gain_jnt_6 = 3.0;
+            measured_endEffPose_desired_frame.M.GetRPY(roll, pitch, yaw);
+            if (std::abs(roll) >= 0.7 || std::abs(pitch) >= 0.7)
+            {
+              RCLCPP_WARN(this->get_logger(), "The xy-plane of end-effector is not sharing closer normal axis with the xy-plane of reference frame. Not performing yaw-control");
+              break;
+            }
+            is_yaw_control = true;
 
+            double yaw_diff = desired_ee_yaw_wrt_desired_frame - yaw;
+            
+            // wrap within [-pi, +pi]
+            if (yaw_diff > M_PI)  yaw_diff -= 2.0*M_PI;
+            if (yaw_diff < -M_PI) yaw_diff += 2.0*M_PI;
+
+            jnt_6_torque = -stiffness_gain_jnt_6 * yaw_diff;
+            if (std::abs(jnt_6_torque) < minimal_torque_ee_jnt)
+            {
+              jnt_6_torque = std::copysign(minimal_torque_ee_jnt, jnt_6_torque);
+            };
+            break;
+          }
+
+          default:
             break;
           }
         }
@@ -1992,6 +2039,7 @@ namespace motion_specification_action
                 force_to_apply_z_axis,
                 per_condition_constraint_count,
                 desired_quat_desired_frame,
+                desired_ee_yaw_wrt_desired_frame,
                 motion_specification_params_object,
                 arm_name);
 
@@ -2095,8 +2143,9 @@ namespace motion_specification_action
                 angle_axis_diff_desired_frame,
                 control_dt,
                 motion_specification_params_object,
-                arm_name
-                );
+                arm_name,
+                is_yaw_control,
+                jnt_6_torque);
 
             get_ForeArm_Link_wrench(jnt_positions, 
                                     measured_ForeArm_Link_Pose_BL, 
@@ -2186,6 +2235,11 @@ namespace motion_specification_action
                                     xdd_minus_jd_qd, jnt_accelerations,
                                     jnt_positions, jnt_velocities,
                                     linkWrenches, jnt_torques_cmd);
+        if (is_yaw_control)
+        {
+          jnt_torques_cmd(6) = jnt_6_torque;
+          is_yaw_control = false;
+        }
       }
 
       // thresholding the jnt_torques_cmd before sending to the robot

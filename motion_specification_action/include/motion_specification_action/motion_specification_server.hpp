@@ -414,9 +414,13 @@ namespace motion_specification_action
     double force_to_apply_y_axis;
     double force_to_apply_z_axis;
 
+    bool is_yaw_control;
+    double jnt_6_torque;
+
     KDL::Vector angle_axis_diff_desired_frame;
     KDL::Frame desired_endEffPose_desired_frame;
     std::array<double, 4> desired_quat_desired_frame;
+    double desired_ee_yaw_wrt_desired_frame;
 
     // initialise multi-dimensional array to store data
     static constexpr size_t LOG_ARRAY_SIZE_POS = 33;
@@ -595,6 +599,7 @@ namespace motion_specification_action
       double &force_to_apply_z_axis,
       const int &per_condition_constraint_count,
       std::array<double, 4> &desired_quat_desired_frame,
+      double &desired_ee_yaw_wrt_desired_frame,
       const YAML::Node &motion_specification_params_object,
       const std::string &arm_name);
 
@@ -717,7 +722,9 @@ namespace motion_specification_action
         KDL::Vector &angle_axis_diff_desired_frame,
         const double &control_dt,
         const YAML::Node &motion_specification_params_object,
-        const std::string &arm_name);
+        const std::string &arm_name,
+        bool &is_yaw_control,
+        double &jnt_6_torque);
 
     // Assuming constraint_type, operator_type, and condition_type are enums
     const std::unordered_map<std::string, constraint_type> &getConstraintTypeMap();
