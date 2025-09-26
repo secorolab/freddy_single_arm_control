@@ -1496,14 +1496,40 @@ namespace motion_specification_action
             break;
 
           // Note: this is a temporary implementation of yaw control and it is only intended to use for the case when the axis under control is nearly aligned with the corresponding axis in the reference frame
+          // The frames can also be in reverted fashion
           case ORIENTATION_YAW:
           {
             double roll, pitch, yaw;
+            double desired_roll;
             // TODO: remove hardcoded values and read from yaml
             double minimal_torque_ee_jnt = 4.0;
             double stiffness_gain_jnt_6 = 3.0;
+            double aligned_frame_roll_threshold = 1.0; // in radian, about 57 degree
+            double upside_down_frame_roll_threshold = 2.5; // in radian, about 143 degree
+
             measured_endEffPose_desired_frame.M.GetRPY(roll, pitch, yaw);
-            if (std::abs(roll) >= 0.7 || std::abs(pitch) >= 0.7)
+
+            if (std::abs(roll) < aligned_frame_roll_threshold)
+            {
+              desired_roll = 0.0;
+            }
+            if (std::abs(roll) > upside_down_frame_roll_threshold)
+            {
+              desired_roll = M_PI;
+            }
+
+            // yaw is set to measured yaw, but later it is actively controlled by rotating the last joint
+            KDL::Rotation R = KDL::Rotation::RPY(desired_roll, 0.0, yaw);
+            double x, y, z, w;
+            R.GetQuaternion(x, y, z, w);
+
+            desired_endEffPose_desired_frame.M = KDL::Rotation::Quaternion(x, y, z, w);
+            angle_axis_diff_desired_frame = KDL::diff(measured_endEffPose_desired_frame.M, desired_endEffPose_desired_frame.M);
+            apply_ee_torque_x_axis_data = stiffness_roll_axis_data * angle_axis_diff_desired_frame(0);
+            apply_ee_torque_y_axis_data = stiffness_pitch_axis_data * angle_axis_diff_desired_frame(1);
+            apply_ee_torque_z_axis_data = stiffness_yaw_axis_data * angle_axis_diff_desired_frame(2);
+
+            if ((std::abs(roll) >= aligned_frame_roll_threshold && std::abs(roll) <= upside_down_frame_roll_threshold) || std::abs(pitch) >= aligned_frame_roll_threshold)
             {
               RCLCPP_WARN(this->get_logger(), "The xy-plane of end-effector is not sharing closer normal axis with the xy-plane of reference frame. Not performing yaw-control");
               break;
@@ -1521,6 +1547,12 @@ namespace motion_specification_action
             {
               jnt_6_torque = std::copysign(minimal_torque_ee_jnt, jnt_6_torque);
             };
+            // upside-down configuration: rotation is in the opposite direction that of the computed torque in the aligned configuration
+            // Note: here the Y-axis of the end-effector is directed to the opposite direction of Y-axis of reference frame because of 180 degree rotation about X-axis
+            if (std::abs(roll) >= upside_down_frame_roll_threshold)
+            {
+              jnt_6_torque = -jnt_6_torque;
+            }
             break;
           }
 
