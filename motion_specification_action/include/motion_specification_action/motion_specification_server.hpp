@@ -18,6 +18,7 @@
 #include "tf2_ros/static_transform_broadcaster.h"
 #include <tf2_ros/buffer.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include "geometry_msgs/msg/twist_stamped.hpp"
 #include <tf2_kdl/tf2_kdl.hpp>
 // #include "moving_average.hpp"
 
@@ -100,6 +101,7 @@ namespace motion_specification_action
     rclcpp_action::Server<MotionSpecification>::SharedPtr action_server_;
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_publisher_;
+    rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr twist_publisher_;
     std::vector<std::string> joint_names_;
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -450,6 +452,7 @@ namespace motion_specification_action
 
     void publish_joint_states(KDL::JntArray& jnt_positions);
     void publish_ee_pose(const double &measured_pos_x_axis_data, const double &measured_pos_y_axis_data, const double &measured_pos_z_axis_data, const std::array<double, 4> &measured_quat_desired_frame, const std::string &frame_name);
+    void publish_ee_twist(const KDL::FrameVel &measured_endEffTwist_desired_frame, const std::string &frame_name);
     void read_config_file(const YAML::Node &config_file_object);
     void parse_urdf_file(const std::string &urdf_file_path, KDL::Tree &kinematic_tree, KDL::Chain &chain_urdf, unsigned int &NUM_LINKS);
     void reset_flags();

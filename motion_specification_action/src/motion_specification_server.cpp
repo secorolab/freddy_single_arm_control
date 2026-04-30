@@ -279,6 +279,7 @@ namespace motion_specification_action
 
     joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
     pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("ee_pose", 10);
+    twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("ee_twist", 10);
 
     joint_names_ = {"Actuator1", "Actuator2", "Actuator3", "Actuator4", "Actuator5", "Actuator6", "Actuator7"};
 
@@ -332,6 +333,23 @@ namespace motion_specification_action
     static_transform.transform.rotation.w = quat_BL_wrt_GF[3];
 
     static_broadcaster_->sendTransform(static_transform);
+  }
+
+  void MotionSpecificationActionServer::publish_ee_twist(const KDL::FrameVel &measured_endEffTwist_desired_frame, const std::string &frame_name) {
+    auto twist_msg = geometry_msgs::msg::TwistStamped();
+
+    twist_msg.header.stamp = this->now();
+    twist_msg.header.frame_id = frame_name;
+
+    twist_msg.twist.linear.x = measured_endEffTwist_desired_frame.GetTwist().vel.x();
+    twist_msg.twist.linear.y = measured_endEffTwist_desired_frame.GetTwist().vel.y();
+    twist_msg.twist.linear.z = measured_endEffTwist_desired_frame.GetTwist().vel.z();
+
+    twist_msg.twist.angular.x = measured_endEffTwist_desired_frame.GetTwist().rot.x();
+    twist_msg.twist.angular.y = measured_endEffTwist_desired_frame.GetTwist().rot.y();
+    twist_msg.twist.angular.z = measured_endEffTwist_desired_frame.GetTwist().rot.z();
+
+    twist_publisher_->publish(twist_msg);
   }
 
   void MotionSpecificationActionServer::publish_ee_pose(const double &measured_pos_x_axis_data, const double &measured_pos_y_axis_data, const double &measured_pos_z_axis_data, const std::array<double, 4> &measured_quat_desired_frame, const std::string &frame_name) {
@@ -474,14 +492,22 @@ namespace motion_specification_action
     // get y-axis of link3 (forearm) in arm base_link frame
     KDL::Vector measured_ForeArm_Link_y_axis_BL = measured_ForeArm_Link_Pose_BL.M.UnitY();
 
-    // project y-axis onto yz-plane of arm base_link to get angle made with the plane
-    KDL::Vector measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane = KDL::Vector(0.0, measured_ForeArm_Link_y_axis_BL.y(), measured_ForeArm_Link_y_axis_BL.z());
-    measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane = measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane / measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane.Norm();
-    double angle = std::acos(KDL::dot(measured_ForeArm_Link_y_axis_BL, measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane));
-
-    // get torque axis as the cross product between y-axis and its projection vector
-    KDL::Vector torque_axis = measured_ForeArm_Link_y_axis_BL * measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane;
+    // when mounted on table
+    KDL::Vector measured_ForeArm_Link_y_axis_BL_projection_to_XY_plane = KDL::Vector(measured_ForeArm_Link_y_axis_BL.x(), measured_ForeArm_Link_y_axis_BL.y(), 0.0);
+    measured_ForeArm_Link_y_axis_BL_projection_to_XY_plane = measured_ForeArm_Link_y_axis_BL_projection_to_XY_plane / measured_ForeArm_Link_y_axis_BL_projection_to_XY_plane.Norm();
+    double angle = std::acos(KDL::dot(measured_ForeArm_Link_y_axis_BL, measured_ForeArm_Link_y_axis_BL_projection_to_XY_plane));
+    KDL::Vector torque_axis = measured_ForeArm_Link_y_axis_BL * measured_ForeArm_Link_y_axis_BL_projection_to_XY_plane;
     torque_axis = torque_axis / torque_axis.Norm();
+
+    // // When mounted to eddie base
+    // // project y-axis onto yz-plane of arm base_link to get angle made with the plane
+    // KDL::Vector measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane = KDL::Vector(0.0, measured_ForeArm_Link_y_axis_BL.y(), measured_ForeArm_Link_y_axis_BL.z());
+    // measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane = measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane / measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane.Norm();
+    // double angle = std::acos(KDL::dot(measured_ForeArm_Link_y_axis_BL, measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane));
+
+    // // get torque axis as the cross product between y-axis and its projection vector
+    // KDL::Vector torque_axis = measured_ForeArm_Link_y_axis_BL * measured_ForeArm_Link_y_axis_BL_projection_to_YZ_plane;
+    // torque_axis = torque_axis / torque_axis.Norm();
 
     double error = 0;
     if (angle < (forearm_link_y_axis_angle_sp - deadband_forearm_y_axis_angle)) {
@@ -736,6 +762,7 @@ namespace motion_specification_action
       std::cout << "[check_1D_vector_constraint_satisfaction] Condition type not found" << std::endl;
       flag = 1; // stop the execution
     }
+
 
     auto operator_value = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"];
     std::string op_str = operator_value.as<std::string>("");
@@ -1898,6 +1925,7 @@ namespace motion_specification_action
       {
         publish_joint_states(jnt_positions);
         publish_ee_pose(measured_pos_x_axis_data, measured_pos_y_axis_data, measured_pos_z_axis_data, measured_quat_desired_frame, frame_name);
+        publish_ee_twist(measured_endEffTwist_desired_frame, frame_name);
         previous_state_publish_time = current_time;
       };
 
@@ -2437,6 +2465,7 @@ namespace motion_specification_action
     try
     {
       motion_specification_params_object = YAML::Load(goal->motion_specification.c_str());
+      // std::cout << "[debug] Loaded YAML:\n" << YAML::Dump(motion_specification_params_object) << std::endl;
     }
     catch (const YAML::ParserException &e)
     {
