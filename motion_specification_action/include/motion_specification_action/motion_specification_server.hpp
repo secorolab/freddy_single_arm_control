@@ -112,6 +112,8 @@ namespace motion_specification_action
     bool transform_available;
     bool log_pid_pos;
     bool log_pid_vel;
+    bool is_pid_pos_ctrl;
+    double err_limit_pid_pos;
     std::stringstream ss_pos_pid;
     std::stringstream ss_vel_pid;
 
@@ -164,6 +166,7 @@ namespace motion_specification_action
     double LOW_PASS_FILTER_ALPHA_MEASURED_VEL;
     double LOG_PID_POS;
     double LOG_PID_VEL;
+    double ERR_LIMIT_PID_POS;
 
     double INTEGRAL_GAIN_X_POS;
     double INTEGRAL_GAIN_Y_POS;
@@ -623,7 +626,9 @@ namespace motion_specification_action
         double &i_signal,
         double &d_signal,
         const double &setpoint,
-        double &pid_signal);
+        double &pid_signal,
+        const bool &is_pid_pos_ctrl,
+        const double &err_limit_pid_pos);
 
     void get_force_and_torque_from_controller_described_in_desired_frame_to_apply_at_EE(
         const double &stiffness_pos_x_axis_data,
@@ -664,6 +669,8 @@ namespace motion_specification_action
         double &i_signal_z_pos,
         double &d_signal_z_pos,
         const bool &log_pid_pos,
+        bool &is_pid_pos_ctrl,
+        const double &err_limit_pid_pos,
         const double &stiffness_vel_x_axis_data,
         const double &stiffness_vel_y_axis_data,
         const double &stiffness_vel_z_axis_data,
