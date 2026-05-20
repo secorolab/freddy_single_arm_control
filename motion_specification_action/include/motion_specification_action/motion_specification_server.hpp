@@ -206,6 +206,7 @@ namespace motion_specification_action
     std::string arm_name;
 
     std::string frame_name;
+    std::string previous_frame_name;  // Track frame changes for synchronization
     std::string action_name;
     std::string arm_base_link_name;
     std::string robot_base_link_name;

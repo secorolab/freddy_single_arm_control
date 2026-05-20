@@ -228,6 +228,7 @@ namespace motion_specification_action
     BL_z_axis_wrt_GF = KDL::Vector(BL_z_axis_wrt_GF_vector[0], BL_z_axis_wrt_GF_vector[1], BL_z_axis_wrt_GF_vector[2]);
     BL_position_wrt_GF = KDL::Vector(BL_position_wrt_GF_vector[0], BL_position_wrt_GF_vector[1], BL_position_wrt_GF_vector[2]);
     frame_name = robot_base_link_name;
+    previous_frame_name = robot_base_link_name;  // Initialize frame tracking
 
     // Initialize the KDL frame
     BL_wrt_GF = KDL::Rotation(BL_x_axis_wrt_GF, BL_y_axis_wrt_GF, BL_z_axis_wrt_GF);
@@ -1930,6 +1931,19 @@ namespace motion_specification_action
     {
       kinova_feedback(kinova_arm_mediator, jnt_positions, jnt_velocities,
         jnt_torques_read);
+      
+      // Frame synchronization: Detect frame changes and update transform immediately
+      // This prevents publishing old pose data with a new frame_id
+      if (frame_name != previous_frame_name) {
+        previous_frame_name = frame_name;
+        get_transform_BL_wrt_desired_frame(
+            frame_name,
+            BL_wrt_desired_frame,
+            transform_stamped,
+            transform_timeout_duration,
+            transform_available);
+        RCLCPP_INFO(this->get_logger(), "Frame switched to: %s", frame_name.c_str());
+      }
         
       get_end_effector_pose_and_twist(
           jnt_velocity, jnt_positions, jnt_velocities,
