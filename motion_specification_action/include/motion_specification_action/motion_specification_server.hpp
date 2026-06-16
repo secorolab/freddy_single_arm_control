@@ -71,6 +71,7 @@ namespace motion_specification_action
     ORIENTATION_PITCH = 7,
     ORIENTATION_YAW = 8,
     TIME_LIMIT = 9,
+    MAX_DISTANCE_TRAVERSED = 10,
   };
 
   enum operator_type
@@ -202,6 +203,8 @@ namespace motion_specification_action
     bool pre_condition_exists;
     bool post_condition_exists;
     bool ms_start_time_set;
+    bool distance_monitor_initialized;
+    bool measured_velocity_filter_initialized;
     double pre_configuration_max_deviation_radians;
     std::string arm_name;
 
@@ -248,6 +251,7 @@ namespace motion_specification_action
     // end effector Pose
     KDL::Frame measured_endEffPose_BL;
     KDL::Frame measured_endEffPose_desired_frame;
+    KDL::Vector previous_distance_monitor_position_desired_frame;
     KDL::Frame measured_ForeArm_Link_Pose_BL;
     KDL::FrameVel measured_endEffTwist_BL;
     KDL::FrameVel measured_endEffTwist_desired_frame;
@@ -274,6 +278,7 @@ namespace motion_specification_action
     KDL::Twist xdd_minus_jd_qd;
     KDL::Twist jd_qd;
     double time_since_start_per_condition_seconds;
+    double distance_traversed_since_start_meters;
     double state_publish_time_step;
     double time_period_of_complete_controller_cycle_data;
     double control_dt;
@@ -585,6 +590,7 @@ namespace motion_specification_action
         const double &measured_vel_y_axis_data,
         const double &measured_vel_z_axis_data,
         const double &time_since_start_per_condition_seconds,
+        const double &distance_traversed_since_start_meters,
         KDL::Wrench &linkWrench_EE,
         const int &condition_constraint_count,
         std::string &constraint_type_str,

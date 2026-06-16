@@ -2,6 +2,20 @@
 
 namespace motion_specification_action
 {
+  namespace
+  {
+    bool is_unset_yaml_node(const YAML::Node &node)
+    {
+      if (!node || node.IsNull())
+      {
+        return true;
+      }
+
+      const std::string value = node.as<std::string>("");
+      return value.empty() || value == "None" || value == "none" || value == "null" || value == "~";
+    }
+  }
+
   MotionSpecificationActionServer::MotionSpecificationActionServer(const rclcpp::NodeOptions &options)
       : Node("ms_action_server", options),
         control_loop_active_(true),
@@ -25,6 +39,9 @@ namespace motion_specification_action
         time_period_of_complete_controller_cycle_data(0.0),
         time_since_start_per_condition_seconds(0.0),
         ms_start_time_set(false),
+        distance_monitor_initialized(false),
+        previous_distance_monitor_position_desired_frame(0.0, 0.0, 0.0),
+        distance_traversed_since_start_meters(0.0),
         stiffness_pos_x_axis_data(0.0),
         stiffness_pos_y_axis_data(0.0),
         stiffness_pos_z_axis_data(0.0),
@@ -91,6 +108,7 @@ namespace motion_specification_action
         filtered_measured_vel_x_axis_data(0.0),
         filtered_measured_vel_y_axis_data(0.0),
         filtered_measured_vel_z_axis_data(0.0),
+        measured_velocity_filter_initialized(false),
         vel_sp_x_axis_data(0.0),
         vel_sp_y_axis_data(0.0),
         vel_sp_z_axis_data(0.0),
@@ -397,6 +415,13 @@ namespace motion_specification_action
     flag = 0;
     time_since_start_per_condition_seconds = 0.0;
     ms_start_time_set = false;
+    distance_monitor_initialized = false;
+    previous_distance_monitor_position_desired_frame = KDL::Vector(0.0, 0.0, 0.0);
+    distance_traversed_since_start_meters = 0.0;
+    measured_velocity_filter_initialized = false;
+    filtered_measured_vel_x_axis_data = 0.0;
+    filtered_measured_vel_y_axis_data = 0.0;
+    filtered_measured_vel_z_axis_data = 0.0;
     switch_to_joint_impendance_control = false;
     jnt_impedance_setpoint_is_set = false;
     pre_condition_satisfied = false;
@@ -605,7 +630,8 @@ namespace motion_specification_action
         {"ORIENTATION_ROLL", constraint_type::ORIENTATION_ROLL},
         {"ORIENTATION_PITCH", constraint_type::ORIENTATION_PITCH},
         {"ORIENTATION_YAW", constraint_type::ORIENTATION_YAW},
-        {"TIME_LIMIT", constraint_type::TIME_LIMIT}};
+        {"TIME_LIMIT", constraint_type::TIME_LIMIT},
+        {"MAX_DISTANCE_TRAVERSED", constraint_type::MAX_DISTANCE_TRAVERSED}};
     return constraint_type_map;
   }
 
@@ -682,19 +708,26 @@ namespace motion_specification_action
         break;
       }
       auto operator_value = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"][j];
-      std::string op_str = operator_value.as<std::string>("");
-      if (!(op_str == "None"))
+      if (!is_unset_yaml_node(operator_value))
       {
         operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"][j].as<std::string>();
         auto operator_iterator = operator_type_map.find(operator_type_str);
         if (operator_iterator != operator_type_map.end())
         {
           operator_type_ = operator_iterator->second;
+          auto desired_value = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["value"][j];
+          if (is_unset_yaml_node(desired_value))
+          {
+            std::cout << "[check_3D_vector_constraint_satisfaction] Active operator has unset desired value at axis " << j << std::endl;
+            constraint_satisfied = false;
+            flag = 1;
+            break;
+          }
 
           switch (operator_type_)
           {
           case GREATER_THAN:
-            desired_data = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["value"][j].as<double>();
+            desired_data = desired_value.as<double>();
             if (j == 0)
             {
               greater_than_monitor(&measured_x_axis_data, &desired_data, &constraint_satisfied);
@@ -710,7 +743,7 @@ namespace motion_specification_action
             break;
 
           case LESS_THAN:
-            desired_data = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["value"][j].as<double>();
+            desired_data = desired_value.as<double>();
             if (j == 0)
             {
               less_than_monitor(&measured_x_axis_data, &desired_data, &constraint_satisfied);
@@ -768,8 +801,7 @@ namespace motion_specification_action
 
 
     auto operator_value = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"];
-    std::string op_str = operator_value.as<std::string>("");
-    if (!(op_str == "None"))
+    if (!is_unset_yaml_node(operator_value))
     {
       operator_type_str = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["operator"].as<std::string>();
       auto operator_iterator = operator_type_map.find(operator_type_str);
@@ -777,16 +809,24 @@ namespace motion_specification_action
       if (operator_iterator != operator_type_map.end())
       {
         operator_type_ = operator_iterator->second;
+        auto desired_value = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["value"];
+        if (is_unset_yaml_node(desired_value))
+        {
+          std::cout << "[check_1D_vector_constraint_satisfaction] Active operator has unset desired value" << std::endl;
+          constraint_satisfied = false;
+          flag = 1;
+          return;
+        }
 
         switch (operator_type_)
         {
         case GREATER_THAN:
-          desired_data = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["value"].as<double>();
+          desired_data = desired_value.as<double>();
           greater_than_monitor(&measured_data, &desired_data, &constraint_satisfied);
           break;
 
         case LESS_THAN:
-          desired_data = motion_specification_params_object[arm_name][condition_type_str]["constraints"][constraint_idx]["value"].as<double>();
+          desired_data = desired_value.as<double>();
           less_than_monitor(&measured_data, &desired_data, &constraint_satisfied);
           break;
 
@@ -817,6 +857,7 @@ namespace motion_specification_action
       const double &measured_vel_y_axis_data,
       const double &measured_vel_z_axis_data,
       const double &time_since_start_per_condition_seconds,
+      const double &distance_traversed_since_start_meters,
       KDL::Wrench &linkWrench_EE,
       const int &condition_constraint_count,
       std::string &constraint_type_str,
@@ -926,6 +967,22 @@ namespace motion_specification_action
             }
             check_1D_vector_constraint_satisfaction(
                 time_since_start_per_condition_seconds,
+                constraint_satisfied,
+                i,
+                motion_specification_params_object,
+                arm_name,
+                condition_type_value);
+            break;
+
+          case MAX_DISTANCE_TRAVERSED:
+            if (condition_type_value == condition_type::PRE_CONDITION)
+            {
+              std::cout << "[check_pre_or_post_condition_satisfaction] Max distance traversed constraint not implemented in pre-condition" << std::endl;
+              flag = 1; // stop the execution
+              break;
+            }
+            check_1D_vector_constraint_satisfaction(
+                distance_traversed_since_start_meters,
                 constraint_satisfied,
                 i,
                 motion_specification_params_object,
@@ -1060,8 +1117,7 @@ namespace motion_specification_action
         case POSITION_XYZ:
           for (int k = 0; k < 3; k++)
           {
-            std::string constraint_str = constraint_value_list[k].as<std::string>("");
-            if (!(constraint_str == "None"))
+            if (!is_unset_yaml_node(constraint_value_list[k]))
             {
               if (k == 0)
               {
@@ -1082,8 +1138,7 @@ namespace motion_specification_action
         case VELOCITY_XYZ:
           for (int k = 0; k < 3; k++)
           {
-            std::string constraint_str = constraint_value_list[k].as<std::string>("");
-            if (!(constraint_str == "None"))
+            if (!is_unset_yaml_node(constraint_value_list[k]))
             {
               if (k == 0)
               {
@@ -1104,8 +1159,7 @@ namespace motion_specification_action
         case FORCE_XYZ:
           for (int k = 0; k < 3; k++)
           {
-            std::string constraint_str = constraint_value_list[k].as<std::string>("");
-            if (!(constraint_str == "None"))
+            if (!is_unset_yaml_node(constraint_value_list[k]))
             {
               if (k == 0)
               {
@@ -1126,8 +1180,7 @@ namespace motion_specification_action
         case ORIENTATION_QUATERNION:
           for (int k = 0; k < 4; k++)
           {
-            std::string constraint_str = constraint_value_list[k].as<std::string>("");
-            if (!(constraint_str == "None"))
+            if (!is_unset_yaml_node(constraint_value_list[k]))
             {
               desired_quat_desired_frame[k] = constraint_value_list[k].as<double>();
             }
@@ -1135,7 +1188,10 @@ namespace motion_specification_action
           break;
 
         case ORIENTATION_YAW:
-          desired_ee_yaw_wrt_desired_frame = constraint_value_list.as<double>() * M_PI / 180.0;
+          if (!is_unset_yaml_node(constraint_value_list))
+          {
+            desired_ee_yaw_wrt_desired_frame = constraint_value_list.as<double>() * M_PI / 180.0;
+          }
           break;
 
         default:
@@ -1424,21 +1480,6 @@ namespace motion_specification_action
 
           case VELOCITY_XYZ:
             is_pid_pos_ctrl = false;
-            if (filtered_measured_vel_x_axis_data == 0.0)
-            {
-              filtered_measured_vel_x_axis_data = measured_vel_x_axis_data;
-            };
-            if (filtered_measured_vel_y_axis_data == 0.0)
-            {
-              filtered_measured_vel_y_axis_data = measured_vel_y_axis_data;
-            };
-            if (filtered_measured_vel_z_axis_data == 0.0)
-            {
-              filtered_measured_vel_z_axis_data = measured_vel_z_axis_data;
-            };
-            filtered_measured_vel_x_axis_data = lp_filter_alpha_measured_vel*measured_vel_x_axis_data + (1-lp_filter_alpha_measured_vel) * filtered_measured_vel_x_axis_data;
-            filtered_measured_vel_y_axis_data = lp_filter_alpha_measured_vel*measured_vel_y_axis_data + (1-lp_filter_alpha_measured_vel) * filtered_measured_vel_y_axis_data;
-            filtered_measured_vel_z_axis_data = lp_filter_alpha_measured_vel*measured_vel_z_axis_data + (1-lp_filter_alpha_measured_vel) * filtered_measured_vel_z_axis_data;
             for (int k = 0; k < 3; k++)
             {
               std::string constraint_str = constraint_value_list[k].as<std::string>("");
@@ -1960,9 +2001,19 @@ namespace motion_specification_action
       measured_endEffPose_desired_frame.M.GetQuaternion(measured_quat_desired_frame[0], measured_quat_desired_frame[1], measured_quat_desired_frame[2], measured_quat_desired_frame[3]);
       measured_endEffPose_desired_frame.M.GetRPY(measured_roll_data, measured_pitch_data, measured_yaw_data);
 
-      // filtered_measured_vel_x_axis_data = vel_filter_x.filter(measured_vel_x_axis_data);
-      // filtered_measured_vel_y_axis_data = vel_filter_y.filter(measured_vel_y_axis_data);
-      // filtered_measured_vel_z_axis_data = vel_filter_z.filter(measured_vel_z_axis_data);
+      if (!measured_velocity_filter_initialized)
+      {
+        filtered_measured_vel_x_axis_data = measured_vel_x_axis_data;
+        filtered_measured_vel_y_axis_data = measured_vel_y_axis_data;
+        filtered_measured_vel_z_axis_data = measured_vel_z_axis_data;
+        measured_velocity_filter_initialized = true;
+      }
+      else
+      {
+        filtered_measured_vel_x_axis_data = lp_filter_alpha_measured_vel * measured_vel_x_axis_data + (1 - lp_filter_alpha_measured_vel) * filtered_measured_vel_x_axis_data;
+        filtered_measured_vel_y_axis_data = lp_filter_alpha_measured_vel * measured_vel_y_axis_data + (1 - lp_filter_alpha_measured_vel) * filtered_measured_vel_y_axis_data;
+        filtered_measured_vel_z_axis_data = lp_filter_alpha_measured_vel * measured_vel_z_axis_data + (1 - lp_filter_alpha_measured_vel) * filtered_measured_vel_z_axis_data;
+      }
 
       auto current_time = std::chrono::high_resolution_clock::now();
       auto time_since_last_publish = std::chrono::duration<double>(current_time-previous_state_publish_time);
@@ -2069,10 +2120,11 @@ namespace motion_specification_action
               measured_roll_data,
               measured_pitch_data,
               measured_yaw_data,
-              measured_vel_x_axis_data,
-              measured_vel_y_axis_data,
-              measured_vel_z_axis_data,
+              filtered_measured_vel_x_axis_data,
+              filtered_measured_vel_y_axis_data,
+              filtered_measured_vel_z_axis_data,
               time_since_start_per_condition_seconds,
+              distance_traversed_since_start_meters,
               linkWrenches[kinova_constants::NUMBER_OF_JOINTS],
               pre_condition_constraint_count,
               constraint_type_str,
@@ -2097,6 +2149,20 @@ namespace motion_specification_action
           }
           auto ms_current_time = std::chrono::high_resolution_clock::now();
           time_since_start_per_condition_seconds = std::chrono::duration<double>(ms_current_time - ms_start_time).count();
+
+          const KDL::Vector current_distance_monitor_position_desired_frame = measured_endEffPose_desired_frame.p;
+          if (!distance_monitor_initialized)
+          {
+            previous_distance_monitor_position_desired_frame = current_distance_monitor_position_desired_frame;
+            distance_traversed_since_start_meters = 0.0;
+            distance_monitor_initialized = true;
+          }
+          else
+          {
+            distance_traversed_since_start_meters += (current_distance_monitor_position_desired_frame - previous_distance_monitor_position_desired_frame).Norm();
+            previous_distance_monitor_position_desired_frame = current_distance_monitor_position_desired_frame;
+          }
+
           // check if the motion specification satisfies post condition
           if (post_condition_exists && !post_condition_satisfied)
           {
@@ -2107,10 +2173,11 @@ namespace motion_specification_action
                 measured_roll_data,
                 measured_pitch_data,
                 measured_yaw_data,
-                measured_vel_x_axis_data,
-                measured_vel_y_axis_data,
-                measured_vel_z_axis_data,
+                filtered_measured_vel_x_axis_data,
+                filtered_measured_vel_y_axis_data,
+                filtered_measured_vel_z_axis_data,
                 time_since_start_per_condition_seconds,
+                distance_traversed_since_start_meters,
                 linkWrenches[kinova_constants::NUMBER_OF_JOINTS],
                 post_condition_constraint_count,
                 constraint_type_str,
