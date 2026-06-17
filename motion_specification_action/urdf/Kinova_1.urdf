@@ -239,7 +239,7 @@
     </inertial> -->
   </link>
   <joint name="EndEffector" type="fixed">
-    <origin xyz="0 0 -0.0615250000000001" rpy="3.14159265358979 1.09937075168372E-32 0" />
+    <origin xyz="0 0 -0.068" rpy="3.14159265358979 1.09937075168372E-32 0" />
     <parent link="Bracelet_Link" />
     <child link="EndEffector_Link" />
     <axis xyz="0 0 0" />
