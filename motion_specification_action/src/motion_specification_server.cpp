@@ -631,7 +631,8 @@ namespace motion_specification_action
         {"ORIENTATION_PITCH", constraint_type::ORIENTATION_PITCH},
         {"ORIENTATION_YAW", constraint_type::ORIENTATION_YAW},
         {"TIME_LIMIT", constraint_type::TIME_LIMIT},
-        {"MAX_DISTANCE_TRAVERSED", constraint_type::MAX_DISTANCE_TRAVERSED}};
+        {"MAX_DISTANCE_TRAVERSED", constraint_type::MAX_DISTANCE_TRAVERSED},
+        {"ORIENTATION_ERROR", constraint_type::ORIENTATION_ERROR}};
     return constraint_type_map;
   }
 
@@ -853,6 +854,8 @@ namespace motion_specification_action
       const double &measured_roll_data,
       const double &measured_pitch_data,
       const double &measured_yaw_data,
+      const std::array<double, 4> &measured_quat_desired_frame,
+      const std::array<double, 4> &desired_quat_desired_frame,
       const double &measured_vel_x_axis_data,
       const double &measured_vel_y_axis_data,
       const double &measured_vel_z_axis_data,
@@ -955,6 +958,22 @@ namespace motion_specification_action
           {
             double measured_yaw_data_deg = measured_yaw_data * 180.0 / M_PI;
             check_1D_vector_constraint_satisfaction(measured_yaw_data_deg, constraint_satisfied, i, motion_specification_params_object, arm_name, condition_type_value);
+            break;
+          }
+
+          case ORIENTATION_ERROR:
+          {
+            const KDL::Rotation measured_orientation = KDL::Rotation::Quaternion(
+                measured_quat_desired_frame[0], measured_quat_desired_frame[1],
+                measured_quat_desired_frame[2], measured_quat_desired_frame[3]);
+            const KDL::Rotation desired_orientation = KDL::Rotation::Quaternion(
+                desired_quat_desired_frame[0], desired_quat_desired_frame[1],
+                desired_quat_desired_frame[2], desired_quat_desired_frame[3]);
+            const double orientation_error_deg =
+                KDL::diff(measured_orientation, desired_orientation).Norm() * 180.0 / M_PI;
+            check_1D_vector_constraint_satisfaction(
+                orientation_error_deg, constraint_satisfied, i,
+                motion_specification_params_object, arm_name, condition_type_value);
             break;
           }
 
@@ -2120,6 +2139,8 @@ namespace motion_specification_action
               measured_roll_data,
               measured_pitch_data,
               measured_yaw_data,
+              measured_quat_desired_frame,
+              desired_quat_desired_frame,
               filtered_measured_vel_x_axis_data,
               filtered_measured_vel_y_axis_data,
               filtered_measured_vel_z_axis_data,
@@ -2163,6 +2184,24 @@ namespace motion_specification_action
             previous_distance_monitor_position_desired_frame = current_distance_monitor_position_desired_frame;
           }
 
+          // Reading goal's target before evaluating terminal error is
+          // essential when position is already satisfied and only orientation changes.
+          get_setpoints_from_motion_specification(
+              pos_sp_x_axis_data,
+              pos_sp_y_axis_data,
+              pos_sp_z_axis_data,
+              vel_sp_x_axis_data,
+              vel_sp_y_axis_data,
+              vel_sp_z_axis_data,
+              force_to_apply_x_axis,
+              force_to_apply_y_axis,
+              force_to_apply_z_axis,
+              per_condition_constraint_count,
+              desired_quat_desired_frame,
+              desired_ee_yaw_wrt_desired_frame,
+              motion_specification_params_object,
+              arm_name);
+
           // check if the motion specification satisfies post condition
           if (post_condition_exists && !post_condition_satisfied)
           {
@@ -2173,6 +2212,8 @@ namespace motion_specification_action
                 measured_roll_data,
                 measured_pitch_data,
                 measured_yaw_data,
+                measured_quat_desired_frame,
+                desired_quat_desired_frame,
                 filtered_measured_vel_x_axis_data,
                 filtered_measured_vel_y_axis_data,
                 filtered_measured_vel_z_axis_data,
@@ -2199,22 +2240,6 @@ namespace motion_specification_action
           }
           else
           {
-            get_setpoints_from_motion_specification(
-                pos_sp_x_axis_data,
-                pos_sp_y_axis_data,
-                pos_sp_z_axis_data,
-                vel_sp_x_axis_data,
-                vel_sp_y_axis_data,
-                vel_sp_z_axis_data,
-                force_to_apply_x_axis,
-                force_to_apply_y_axis,
-                force_to_apply_z_axis,
-                per_condition_constraint_count,
-                desired_quat_desired_frame,
-                desired_ee_yaw_wrt_desired_frame,
-                motion_specification_params_object,
-                arm_name);
-
             get_force_and_torque_from_controller_described_in_desired_frame_to_apply_at_EE(
                 stiffness_pos_x_axis_data,
                 stiffness_pos_y_axis_data,

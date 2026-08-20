@@ -72,6 +72,7 @@ namespace motion_specification_action
     ORIENTATION_YAW = 8,
     TIME_LIMIT = 9,
     MAX_DISTANCE_TRAVERSED = 10,
+    ORIENTATION_ERROR = 11,
   };
 
   enum operator_type
@@ -586,6 +587,8 @@ namespace motion_specification_action
         const double &measured_roll_data,
         const double &measured_pitch_data,
         const double &measured_yaw_data,
+        const std::array<double, 4> &measured_quat_desired_frame,
+        const std::array<double, 4> &desired_quat_desired_frame,
         const double &measured_vel_x_axis_data,
         const double &measured_vel_y_axis_data,
         const double &measured_vel_z_axis_data,
