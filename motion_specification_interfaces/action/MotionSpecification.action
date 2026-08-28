@@ -1,4 +1,5 @@
 string motion_specification
+geometry_msgs/TransformStamped reference_from_robot_base
 
 ---
 bool motion_successful

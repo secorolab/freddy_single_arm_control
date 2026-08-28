@@ -45,6 +45,9 @@ public:
     auto goal_msg = MotionSpecification::Goal();
     std::string motion_specification = "motion_specification";
     goal_msg.motion_specification = motion_specification;
+    goal_msg.reference_from_robot_base.header.frame_id = "eddie_base_link";
+    goal_msg.reference_from_robot_base.child_frame_id = "eddie_base_link";
+    goal_msg.reference_from_robot_base.transform.rotation.w = 1.0;
 
     RCLCPP_INFO(this->get_logger(), "Sending goal");
 

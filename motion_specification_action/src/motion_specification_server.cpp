@@ -1,5 +1,7 @@
 #include "motion_specification_action/motion_specification_server.hpp"
 
+#include <cmath>
+
 namespace motion_specification_action
 {
   namespace
@@ -177,9 +179,7 @@ namespace motion_specification_action
         action_name("unknown"),
         arm_base_link_name("base_link"),
         robot_base_link_name("eddie_base_link"),
-        transform_available(false),
-        goal_handle_result_published(true),
-        transform_timeout_duration(std::chrono::seconds(10))
+        goal_handle_result_published(true)
   {
     using namespace std::placeholders;
     package_share_directory = ament_index_cpp::get_package_share_directory("motion_specification_action");
@@ -246,7 +246,6 @@ namespace motion_specification_action
     BL_z_axis_wrt_GF = KDL::Vector(BL_z_axis_wrt_GF_vector[0], BL_z_axis_wrt_GF_vector[1], BL_z_axis_wrt_GF_vector[2]);
     BL_position_wrt_GF = KDL::Vector(BL_position_wrt_GF_vector[0], BL_position_wrt_GF_vector[1], BL_position_wrt_GF_vector[2]);
     frame_name = robot_base_link_name;
-    previous_frame_name = robot_base_link_name;  // Initialize frame tracking
 
     // Initialize the KDL frame
     BL_wrt_GF = KDL::Rotation(BL_x_axis_wrt_GF, BL_y_axis_wrt_GF, BL_z_axis_wrt_GF);
@@ -304,8 +303,6 @@ namespace motion_specification_action
 
     joint_names_ = {"Actuator1", "Actuator2", "Actuator3", "Actuator4", "Actuator5", "Actuator6", "Actuator7"};
 
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
 
     publish_static_transform_from_GF_to_BL(robot_base_link_name, arm_base_link_name, BL_wrt_GF_frame);
@@ -1887,7 +1884,7 @@ namespace motion_specification_action
       SAVE_LOG_EVERY_NTH_STEP = config_file_object[arm_name]["SAVE_LOG_EVERY_NTH_STEP"].as<int>();
       control_dt = DESIRED_TIME_STEP;
 
-      
+
       stiffness_pos_x_axis_data = STIFFNESS_GAIN_X_POS;
       stiffness_pos_y_axis_data = STIFFNESS_GAIN_Y_POS;
       stiffness_pos_z_axis_data = STIFFNESS_GAIN_Z_POS;
@@ -1963,6 +1960,11 @@ namespace motion_specification_action
 
     if (rclcpp::ok() && control_loop_active_ && flag == 0)
     {
+      KDL::Frame initial_desired_frame;
+      {
+        std::lock_guard<std::mutex> lock(desired_frame_mutex_);
+        initial_desired_frame = BL_wrt_desired_frame;
+      }
       kinova_feedback(kinova_arm_mediator, jnt_positions, jnt_velocities,
         jnt_torques_read);
         
@@ -1970,7 +1972,7 @@ namespace motion_specification_action
           jnt_velocity, jnt_positions, jnt_velocities,
           measured_endEffPose_BL, measured_endEffTwist_BL,
           measured_endEffPose_desired_frame, measured_endEffTwist_desired_frame,
-          fkSolverPos, fkSolverVel, BL_wrt_desired_frame);
+          fkSolverPos, fkSolverVel, initial_desired_frame);
 
       calculate_joint_torques_RNEA(jacobDotSolver, ikSolverAcc, idSolver,
                                     jnt_velocity, jd_qd, xdd,
@@ -1991,25 +1993,20 @@ namespace motion_specification_action
     {
       kinova_feedback(kinova_arm_mediator, jnt_positions, jnt_velocities,
         jnt_torques_read);
-      
-      // Frame synchronization: Detect frame changes and update transform immediately
-      // This prevents publishing old pose data with a new frame_id
-      if (frame_name != previous_frame_name) {
-        previous_frame_name = frame_name;
-        get_transform_BL_wrt_desired_frame(
-            frame_name,
-            BL_wrt_desired_frame,
-            transform_stamped,
-            transform_timeout_duration,
-            transform_available);
-        RCLCPP_INFO(this->get_logger(), "Frame switched to: %s", frame_name.c_str());
+
+      KDL::Frame active_desired_frame;
+      std::string active_frame_name;
+      {
+        std::lock_guard<std::mutex> lock(desired_frame_mutex_);
+        active_desired_frame = BL_wrt_desired_frame;
+        active_frame_name = frame_name;
       }
-        
+
       get_end_effector_pose_and_twist(
           jnt_velocity, jnt_positions, jnt_velocities,
           measured_endEffPose_BL, measured_endEffTwist_BL,
           measured_endEffPose_desired_frame, measured_endEffTwist_desired_frame,
-          fkSolverPos, fkSolverVel, BL_wrt_desired_frame);
+          fkSolverPos, fkSolverVel, active_desired_frame);
 
       measured_pos_x_axis_data = measured_endEffPose_desired_frame.p.x();
       measured_vel_x_axis_data = measured_endEffTwist_desired_frame.GetTwist().vel.x();
@@ -2039,8 +2036,8 @@ namespace motion_specification_action
       if (time_since_last_publish.count() > state_publish_time_step)
       {
         publish_joint_states(jnt_positions);
-        publish_ee_pose(measured_pos_x_axis_data, measured_pos_y_axis_data, measured_pos_z_axis_data, measured_quat_desired_frame, frame_name);
-        publish_ee_twist(measured_endEffTwist_desired_frame, frame_name);
+        publish_ee_pose(measured_pos_x_axis_data, measured_pos_y_axis_data, measured_pos_z_axis_data, measured_quat_desired_frame, active_frame_name);
+        publish_ee_twist(measured_endEffTwist_desired_frame, active_frame_name);
         previous_state_publish_time = current_time;
       };
 
@@ -2537,45 +2534,46 @@ namespace motion_specification_action
     kinova_arm_mediator.set_control_mode(control_mode::POSITION, nullptr);
   }
 
-  void MotionSpecificationActionServer::get_transform_BL_wrt_desired_frame(
-      const std::string &frame_name,
-      KDL::Frame &BL_wrt_desired_frame,
-      geometry_msgs::msg::TransformStamped &transform_stamped,
-      std::chrono::duration<double> &transform_timeout_duration,
-      bool &transform_available)
+  bool MotionSpecificationActionServer::set_frozen_goal_frame(
+      const MotionSpecification::Goal &goal,
+      std::string &failure_reason)
   {
-    auto start_time = std::chrono::high_resolution_clock::now();
-    auto current_time = std::chrono::high_resolution_clock::now();
+    const auto &transform = goal.reference_from_robot_base;
+    if (transform.header.frame_id != frame_name) {
+      failure_reason = "goal reference frame does not match motion specification frame_name";
+      return false;
+    }
+    if (transform.child_frame_id != robot_base_link_name) {
+      failure_reason = "goal transform child frame must be " + robot_base_link_name;
+      return false;
+    }
 
-    while (current_time - start_time < transform_timeout_duration)
-    {
-      current_time = std::chrono::high_resolution_clock::now();
-      // Check if the transform is available
-      if (tf_buffer_->canTransform(frame_name, arm_base_link_name, tf2::TimePointZero))
-      {
-        try {
-          transform_stamped = tf_buffer_->lookupTransform(
-            frame_name,
-            arm_base_link_name,
-            tf2::TimePointZero);
-          transform_available = true;
-        } catch (const tf2::TransformException &ex) {
-            RCLCPP_WARN(this->get_logger(), "Transform failed: %s", ex.what());
-            transform_available = false;
-        }
-        if (transform_available)
-        {
-          break; // Exit the loop if the transform is available
-        }
-        // sleep for a short duration to allow the transform to be available
-        RCLCPP_INFO(this->get_logger(), "Waiting for transform from %s to base_link of arm ", frame_name.c_str());
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Spin the node to process incoming messages
-        rclcpp::spin_some(this->get_node_base_interface());
+    const auto &translation = transform.transform.translation;
+    const auto &rotation = transform.transform.rotation;
+    const double values[] = {
+      translation.x, translation.y, translation.z,
+      rotation.x, rotation.y, rotation.z, rotation.w,
+    };
+    for (const double value : values) {
+      if (!std::isfinite(value)) {
+        failure_reason = "goal transform contains a non-finite value";
+        return false;
       }
     }
-    BL_wrt_desired_frame = tf2::transformToKDL(transform_stamped);
+    const double norm = std::sqrt(
+      rotation.x * rotation.x + rotation.y * rotation.y +
+      rotation.z * rotation.z + rotation.w * rotation.w);
+    if (norm < 1e-8) {
+      failure_reason = "goal transform quaternion is zero";
+      return false;
+    }
+
+    const KDL::Frame reference_wrt_robot_base(
+      KDL::Rotation::Quaternion(
+        rotation.x / norm, rotation.y / norm, rotation.z / norm, rotation.w / norm),
+      KDL::Vector(translation.x, translation.y, translation.z));
+    BL_wrt_desired_frame = reference_wrt_robot_base * BL_wrt_GF_frame;
+    return true;
   }
 
   template <size_t N>
@@ -2614,6 +2612,7 @@ namespace motion_specification_action
       goal_handle->abort(result);
       return;
     }
+    std::string transform_error;
     try
     {
       read_ms_conditions_count(motion_specification_params_object,
@@ -2621,7 +2620,18 @@ namespace motion_specification_action
                                pre_condition_constraint_count,
                                per_condition_constraint_count,
                                post_condition_constraint_count);
-      read_frame_and_action_names(motion_specification_params_object);
+      {
+        std::lock_guard<std::mutex> lock(desired_frame_mutex_);
+        read_frame_and_action_names(motion_specification_params_object);
+        if (!set_frozen_goal_frame(*goal, transform_error))
+        {
+          RCLCPP_ERROR(this->get_logger(), "Invalid frozen control-frame transform: %s", transform_error.c_str());
+          result->motion_successful = false;
+          result->ms_action_name = action_name;
+          goal_handle->abort(result);
+          return;
+        }
+      }
       get_pre_configuration_joint_angles(
           arm_name,
           motion_specification_params_object,
@@ -2655,13 +2665,6 @@ namespace motion_specification_action
     {
       post_condition_exists = true;
     }
-
-    get_transform_BL_wrt_desired_frame(
-        frame_name,
-        BL_wrt_desired_frame,
-        transform_stamped,
-        transform_timeout_duration,
-        transform_available);
 
     // Initialize the parameters
     reset_flags();

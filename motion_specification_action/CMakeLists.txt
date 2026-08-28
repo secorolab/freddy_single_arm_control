@@ -21,10 +21,7 @@ find_package(kinova_mediator REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
-find_package(tf2_geometry_msgs REQUIRED)
-find_package(tf2_kdl REQUIRED)
 
 # Define Kinova API include path
 set(KINOVA_API_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../kinova_mediator/kinova_api)
@@ -92,10 +89,7 @@ ament_target_dependencies(action_server
   "ament_index_cpp"
   "sensor_msgs"
   "geometry_msgs"
-  "tf2"
   "tf2_ros"
-  "tf2_geometry_msgs"
-  "tf2_kdl"
 )
 
 target_link_libraries(action_server yaml-cpp)

@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <csignal>
 #include <random>
@@ -14,12 +15,9 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
-#include <tf2_ros/transform_listener.h>
 #include "tf2_ros/static_transform_broadcaster.h"
-#include <tf2_ros/buffer.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include "geometry_msgs/msg/twist_stamped.hpp"
-#include <tf2_kdl/tf2_kdl.hpp>
 // #include "moving_average.hpp"
 
 #include <Eigen/Core>
@@ -105,13 +103,9 @@ namespace motion_specification_action
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_publisher_;
     rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr twist_publisher_;
     std::vector<std::string> joint_names_;
-    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_;
-    geometry_msgs::msg::TransformStamped transform_stamped;
-    std::chrono::duration<double> transform_timeout_duration;
+    std::mutex desired_frame_mutex_;
     std::chrono::high_resolution_clock::time_point ms_start_time;
-    bool transform_available;
     bool log_pid_pos;
     bool log_pid_vel;
     bool is_pid_pos_ctrl;
@@ -210,7 +204,6 @@ namespace motion_specification_action
     std::string arm_name;
 
     std::string frame_name;
-    std::string previous_frame_name;  // Track frame changes for synchronization
     std::string action_name;
     std::string arm_base_link_name;
     std::string robot_base_link_name;
@@ -496,12 +489,9 @@ namespace motion_specification_action
       const std::string &robot_base_link_name, 
       const std::string &arm_base_link_name, 
       KDL::Frame &BL_wrt_GF_frame);
-    void get_transform_BL_wrt_desired_frame(
-      const std::string &frame_name,
-      KDL::Frame &BL_wrt_desired_frame,
-      geometry_msgs::msg::TransformStamped &transform_stamped,
-      std::chrono::duration<double> &transform_timeout_duration,
-      bool &transform_available);
+    bool set_frozen_goal_frame(
+      const MotionSpecification::Goal &goal,
+      std::string &failure_reason);
     void get_pre_configuration_joint_angles(
       const std::string &arm_name,
       const YAML::Node &motion_specification_params_object,
