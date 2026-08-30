@@ -133,6 +133,7 @@ namespace motion_specification_action
     // initialise data by reading from the config file
     double WRENCH_THRESHOLD_LINEAR;
     double WRENCH_THRESHOLD_ROTATIONAL;
+    double MAX_REORIENTATION_RATE_DEG_S;
     double JOINT_TORQUE_THRESHOLD_UNTIL_JNT_4;
     double JOINT_TORQUE_THRESHOLD_FROM_JNT_5_TO_7;
     double STIFFNESS_GAIN_X_POS;
@@ -424,8 +425,11 @@ namespace motion_specification_action
 
     KDL::Vector angle_axis_diff_desired_frame;
     KDL::Frame desired_endEffPose_desired_frame;
+    KDL::Rotation reorientation_setpoint_desired_frame;
     std::array<double, 4> desired_quat_desired_frame;
     double desired_ee_yaw_wrt_desired_frame;
+    bool reorientation_rate_limit_enabled;
+    bool reorientation_setpoint_initialized;
 
     // initialise multi-dimensional array to store data
     static constexpr size_t LOG_ARRAY_SIZE_POS = 33;

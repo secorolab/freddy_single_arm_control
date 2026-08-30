@@ -126,8 +126,11 @@ namespace motion_specification_action
         log_pid_vel(false),
         is_pid_pos_ctrl(false),
         err_limit_pid_pos(0.0),
+        MAX_REORIENTATION_RATE_DEG_S(15.0),
         desired_quat_desired_frame{0.0, 0.0, 0.0, 1.0},
         desired_ee_yaw_wrt_desired_frame(0.0),
+        reorientation_rate_limit_enabled(false),
+        reorientation_setpoint_initialized(false),
         measured_quat_desired_frame{0.0, 0.0, 0.0, 1.0},
         stiffness_roll_axis_data(0.0),
         stiffness_pitch_axis_data(0.0),
@@ -443,6 +446,8 @@ namespace motion_specification_action
     previous_error_z_vel = 0.0;
     previous_d_signal_z_vel = 0.0;
     error_sum_vel_z_axis_data = 0.0;
+    reorientation_rate_limit_enabled = false;
+    reorientation_setpoint_initialized = false;
   }
 
   void MotionSpecificationActionServer::kinova_setup_communication(
@@ -1597,13 +1602,46 @@ namespace motion_specification_action
             break;
 
           case ORIENTATION_QUATERNION:
-            desired_endEffPose_desired_frame.M = KDL::Rotation::Quaternion(desired_quat_desired_frame[0], desired_quat_desired_frame[1], desired_quat_desired_frame[2], desired_quat_desired_frame[3]);
+          {
+            const KDL::Rotation target_orientation = KDL::Rotation::Quaternion(
+                desired_quat_desired_frame[0], desired_quat_desired_frame[1],
+                desired_quat_desired_frame[2], desired_quat_desired_frame[3]);
+            if (reorientation_rate_limit_enabled)
+            {
+              if (!reorientation_setpoint_initialized)
+              {
+                reorientation_setpoint_desired_frame = measured_endEffPose_desired_frame.M;
+                reorientation_setpoint_initialized = true;
+              }
+              const KDL::Vector remaining_rotation = KDL::diff(
+                  reorientation_setpoint_desired_frame, target_orientation);
+              const double remaining_angle = remaining_rotation.Norm();
+              const double max_step =
+                  MAX_REORIENTATION_RATE_DEG_S * M_PI / 180.0 * control_dt;
+              if (remaining_angle > max_step)
+              {
+                reorientation_setpoint_desired_frame = KDL::addDelta(
+                    reorientation_setpoint_desired_frame,
+                    remaining_rotation,
+                    max_step / remaining_angle);
+              }
+              else
+              {
+                reorientation_setpoint_desired_frame = target_orientation;
+              }
+              desired_endEffPose_desired_frame.M = reorientation_setpoint_desired_frame;
+            }
+            else
+            {
+              desired_endEffPose_desired_frame.M = target_orientation;
+            }
             angle_axis_diff_desired_frame = KDL::diff(measured_endEffPose_desired_frame.M, desired_endEffPose_desired_frame.M);
             apply_ee_torque_x_axis_data = stiffness_roll_axis_data * angle_axis_diff_desired_frame(0);
             apply_ee_torque_y_axis_data = stiffness_pitch_axis_data * angle_axis_diff_desired_frame(1);
             apply_ee_torque_z_axis_data = stiffness_yaw_axis_data * angle_axis_diff_desired_frame(2);
 
             break;
+          }
 
           // Note: this is a temporary implementation of yaw control and it is only intended to use for the case when the axis under control is nearly aligned with the corresponding axis in the reference frame
           // The frames can also be in reverted fashion
@@ -1872,6 +1910,11 @@ namespace motion_specification_action
       gravitational_acceleration = config_file_object[arm_name]["gravitational_acceleration"].as<std::vector<float>>();
       WRENCH_THRESHOLD_LINEAR = config_file_object[arm_name]["WRENCH_THRESHOLD_LINEAR"].as<double>();
       WRENCH_THRESHOLD_ROTATIONAL = config_file_object[arm_name]["WRENCH_THRESHOLD_ROTATIONAL"].as<double>();
+      MAX_REORIENTATION_RATE_DEG_S = config_file_object[arm_name]["MAX_REORIENTATION_RATE_DEG_S"].as<double>();
+      if (!std::isfinite(MAX_REORIENTATION_RATE_DEG_S) || MAX_REORIENTATION_RATE_DEG_S <= 0.0)
+      {
+        throw std::runtime_error("MAX_REORIENTATION_RATE_DEG_S must be finite and positive");
+      }
 
       JOINT_TORQUE_THRESHOLD_UNTIL_JNT_4 = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD_UNTIL_JNT_4"].as<double>();
       JOINT_TORQUE_THRESHOLD_FROM_JNT_5_TO_7 = config_file_object[arm_name]["JOINT_TORQUE_THRESHOLD_FROM_JNT_5_TO_7"].as<double>();
@@ -2668,6 +2711,15 @@ namespace motion_specification_action
 
     // Initialize the parameters
     reset_flags();
+    for (int i = 1; i <= post_condition_constraint_count; ++i)
+    {
+      const auto type = motion_specification_params_object[arm_name]["POST_CONDITION"]["constraints"][i]["type"];
+      if (type && type.as<std::string>("") == "ORIENTATION_ERROR")
+      {
+        reorientation_rate_limit_enabled = true;
+        break;
+      }
+    }
     goal_accepted_and_executing = true;
     goal_handle_result_published = false;
 
